@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="{{wrapStyle}}">
+  <sc-if value="{{showImg}}" hint-placeholder-val="{{false}}">
+    <img src="{{url}}" style="{{imgStyle}}">
+  </sc-if>
+  <sc-if value="{{showChip}}" hint-placeholder-val="{{false}}">
+    <div style="{{chipStyle}}">{{chip}}</div>
+  </sc-if>
+  <sc-if value="{{showBlank}}" hint-placeholder-val="{{true}}">
+    <span style="{{blankStyle}}"></span>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:60,&quot;height&quot;:40},&quot;url&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;w&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;h&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;r&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;chip&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;center&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals(){
+    const p=this.props||{};
+    const w=parseInt(p.w,10)||20, h=parseInt(p.h,10)||14, r=parseInt(p.r,10)||2;
+    const url=p.url||'';
+    const chip=p.chip||'';
+    const has=!!url;
+    const center=p.center==='1'||p.center===true;
+    const size='width:'+w+'px;height:'+h+'px;border-radius:'+r+'px';
+    return {
+      url, chip,
+      showImg:has, showChip:!has&&!!chip, showBlank:!has&&!chip,
+      wrapStyle:'flex:none;'+(center?'margin:0 auto;':'')+'display:'+(center?'block':'inline-flex'),
+      imgStyle:size+';object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.15);display:block'+(center?';margin:0 auto':''),
+      chipStyle:size+';background:#222d44;display:flex;align-items:center;justify-content:center;font:800 13px Archivo;color:#7a86a0'+(center?';margin:0 auto':''),
+      blankStyle:size+';background:#2a3550;display:inline-block;flex:none'
+    };
+  }
+}
+</script>
+</body>
+</html>

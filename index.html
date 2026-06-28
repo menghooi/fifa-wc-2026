@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIFA World Cup 2026 · Road to the Final</title>
+<!-- Load React locally so the DC runtime finds them without CDN access -->
+<script src="./project/react.min.js"></script>
+<script src="./project/react-dom.min.js"></script>
+<script src="./project/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{height:11px;width:11px}
+::-webkit-scrollbar-thumb{background:#26304a;border-radius:8px;border:3px solid #070a12}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes popIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+</style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(1100px 620px at 50% -160px,rgba(227,178,60,.10),transparent 60%),radial-gradient(900px 500px at 12% 8%,rgba(46,111,222,.10),transparent 55%),radial-gradient(900px 500px at 88% 8%,rgba(92,192,240,.08),transparent 55%),#070a12;color:#e9eef7;padding-bottom:64px">
+
+  <!-- HEADER -->
+  <header style="position:sticky;top:0;z-index:40;backdrop-filter:blur(14px);background:linear-gradient(180deg,rgba(7,10,18,.94),rgba(7,10,18,.78));border-bottom:1px solid rgba(255,255,255,.07)">
+    <div style="max-width:1760px;margin:0 auto;padding:13px 22px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:13px;min-width:0">
+        <div style="width:38px;height:38px;border-radius:9px;background:linear-gradient(145deg,#e3b23c,#9a6f1c);display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 4px 14px rgba(227,178,60,.3)">
+          <span style="font:900 18px Archivo;color:#1a1407">26</span>
+        </div>
+        <div style="min-width:0">
+          <div style="font:900 19px/1 Archivo;letter-spacing:.01em">FIFA WORLD CUP 2026<span style="font-size:11px;vertical-align:super;color:#8793a8">™</span></div>
+          <div style="font:700 11px/1.3 Archivo;letter-spacing:.34em;color:#e3b23c;margin-top:4px">ROAD TO THE FINAL</div>
+        </div>
+      </div>
+
+      <nav style="display:flex;gap:4px;background:rgba(255,255,255,.04);padding:4px;border-radius:11px;border:1px solid rgba(255,255,255,.06);margin-left:6px">
+        <button onClick="{{setBracket}}" style="{{tabBracket}}">Bracket</button>
+        <button onClick="{{setGroups}}" style="{{tabGroups}}">Groups</button>
+        <button onClick="{{setRoad}}" style="{{tabRoad}}">Argentina's Road</button>
+      </nav>
+
+      <div style="flex:1"></div>
+
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:9px">
+          <span style="font:600 11px Barlow;color:#8793a8;letter-spacing:.02em">As played</span>
+          <button onClick="{{toggleSim}}" aria-label="Simulate tournament" style="{{simTrack}}">
+            <span style="{{simKnob}}"></span>
+          </button>
+          <span style="font:700 11px Barlow;color:{{simTextColor}};letter-spacing:.02em">Simulate full tournament</span>
+        </div>
+        <div style="font:600 11px Barlow;color:#5d6880;border-left:1px solid rgba(255,255,255,.1);padding-left:16px;white-space:nowrap">Updated 24 Jun 2026</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- BRACKET VIEW -->
+  <sc-if value="{{isBracket}}" hint-placeholder-val="{{true}}">
+  <section>
+    <div style="max-width:1760px;margin:0 auto;padding:16px 22px 4px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="font:700 11px Archivo;letter-spacing:.16em;color:#8793a8">HIGHLIGHT PATH</span>
+        <div style="display:flex;gap:3px;background:rgba(255,255,255,.04);padding:3px;border-radius:9px;border:1px solid rgba(255,255,255,.06)">
+          <button onClick="{{setHiArg}}" style="{{hiArgBtn}}">Argentina</button>
+          <button onClick="{{setHiFra}}" style="{{hiFraBtn}}">France</button>
+          <button onClick="{{setHiNone}}" style="{{hiNoneBtn}}">None</button>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:16px;font:600 11px Barlow;color:#8793a8;flex-wrap:wrap">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:3px;background:#5cc0f0;display:inline-block"></span>Featured route</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:3px;border-radius:2px;background:#e3b23c;display:inline-block"></span>Final</span>
+        <span style="opacity:.7">Tap any fixture for kick-off times &amp; details</span>
+      </div>
+    </div>
+
+    <div ref="{{wrapRef}}" style="overflow:auto;padding:8px 22px 22px">
+      <div ref="{{sizerRef}}" style="position:relative;margin:0 auto">
+        <div ref="{{stageRef}}" style="position:absolute;top:0;left:0;width:{{stageW}}px;height:{{stageH}}px;transform-origin:top left">
+          <svg width="{{stageW}}" height="{{stageH}}" style="position:absolute;top:0;left:0;overflow:visible;pointer-events:none">
+            <sc-for list="{{connectors}}" as="con" hint-placeholder-count="30">
+              <polyline points="{{con.points}}" fill="none" stroke="{{con.stroke}}" stroke-width="{{con.sw}}" stroke-linejoin="round" stroke-linecap="round"></polyline>
+            </sc-for>
+          </svg>
+
+          <sc-for list="{{labels}}" as="lab" hint-placeholder-count="9">
+            <div style="position:absolute;top:34px;left:{{lab.x}}px;transform:translateX(-50%);font:700 11px Archivo;letter-spacing:.18em;color:#5d6880;white-space:nowrap">{{lab.text}}</div>
+          </sc-for>
+
+          <sc-for list="{{boxes}}" as="box" hint-placeholder-count="30">
+            <div onClick="{{box.onOpen}}" style="position:absolute;left:{{box.left}}px;top:{{box.top}}px;width:{{box.w}}px;cursor:pointer;border-radius:9px;overflow:hidden;background:#111a2b;border:1px solid {{box.borderColor}};box-shadow:{{box.shadow}};transition:transform .12s,border-color .12s" style-hover="transform:translateY(-2px);border-color:rgba(255,255,255,.34)">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 9px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.05)">
+                <span style="font:700 9px Archivo;letter-spacing:.12em;color:{{box.numColor}}">{{box.numLabel}}</span>
+                <span style="font:600 9px Barlow;color:#5d6880">{{box.dateLabel}}</span>
+              </div>
+              <dc-import name="Slot" slot="{{box.home}}" hint-size="100%,27px"></dc-import>
+              <div style="height:1px;background:rgba(255,255,255,.06)"></div>
+              <dc-import name="Slot" slot="{{box.away}}" hint-size="100%,27px"></dc-import>
+              <sc-if value="{{box.hasPens}}" hint-placeholder-val="{{false}}">
+                <div style="padding:2px 9px 4px;font:600 9px Barlow;color:#8793a8;background:rgba(255,255,255,.02)">{{box.pens}}</div>
+              </sc-if>
+            </div>
+          </sc-for>
+
+          <!-- FINAL -->
+          <div onClick="{{finalBox.onOpen}}" style="position:absolute;left:{{finalBox.left}}px;top:{{finalBox.top}}px;width:{{finalBox.w}}px;cursor:pointer;border-radius:13px;overflow:hidden;background:linear-gradient(180deg,#1c1708,#120d04);border:1.5px solid {{accent}};box-shadow:0 0 0 1px rgba(227,178,60,.2),0 18px 50px rgba(227,178,60,.16)" style-hover="transform:translateY(-2px)">
+            <div style="text-align:center;padding:9px 10px 7px;border-bottom:1px solid rgba(227,178,60,.22)">
+              <div style="font:900 16px Archivo;letter-spacing:.16em;color:{{accent}}">FINAL</div>
+              <div style="font:600 10px Barlow;color:#c8b886;margin-top:2px">Jul 19, 2026 · MetLife Stadium</div>
+            </div>
+            <sc-if value="{{finalBox.played}}" hint-placeholder-val="{{false}}">
+              <div style="padding:11px 12px">
+                <dc-import name="Slot" slot="{{finalBox.home}}" hint-size="100%,28px"></dc-import>
+                <div style="height:1px;background:rgba(227,178,60,.18);margin:3px 0"></div>
+                <dc-import name="Slot" slot="{{finalBox.away}}" hint-size="100%,28px"></dc-import>
+                <div style="text-align:center;margin-top:9px;padding-top:8px;border-top:1px solid rgba(227,178,60,.2)">
+                  <div style="font:700 9px Archivo;letter-spacing:.2em;color:#c8b886">WORLD CHAMPIONS</div>
+                  <div style="font:900 16px Archivo;color:{{accent}};margin-top:3px">{{finalBox.champName}}</div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{finalBox.notPlayed}}" hint-placeholder-val="{{true}}">
+              <div style="padding:14px 12px;text-align:center">
+                <div style="font:900 30px Archivo;color:{{accent}};line-height:1">🏆</div>
+                <div style="font:700 11px Barlow;color:#c8b886;margin-top:8px">Winner SF1 vs Winner SF2</div>
+                <div style="font:600 10px Barlow;color:#8a7a4e;margin-top:4px">New York / New Jersey</div>
+              </div>
+            </sc-if>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+  </sc-if>
+
+  <!-- GROUPS VIEW -->
+  <sc-if value="{{isGroups}}" hint-placeholder-val="{{false}}">
+  <section style="max-width:1500px;margin:0 auto;padding:22px">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+      <h2 style="font:800 22px Archivo">Group Stage</h2>
+      <span style="font:600 13px Barlow;color:#8793a8">Matchdays 1–2 complete · Matchday 3 from 24 Jun. Tap a team for fixtures &amp; results.</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;margin-top:14px">
+      <sc-for list="{{groups}}" as="grp" hint-placeholder-count="12">
+        <div style="background:#0e1626;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;background:linear-gradient(90deg,{{grp.color}}28,transparent)">
+            <span style="width:9px;height:22px;border-radius:3px;background:{{grp.color}};display:inline-block"></span>
+            <span style="font:800 15px Archivo;letter-spacing:.02em;white-space:nowrap">Group {{grp.id}}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:20px 1fr 26px 26px 32px 30px;padding:6px 14px 4px;font:700 9px Archivo;letter-spacing:.08em;color:#5d6880">
+            <span></span><span>TEAM</span><span style="text-align:center">P</span><span style="text-align:center">W</span><span style="text-align:center">GD</span><span style="text-align:right">PTS</span>
+          </div>
+          <sc-for list="{{grp.rows}}" as="row" hint-placeholder-count="4">
+            <div onClick="{{row.onOpen}}" style="display:grid;grid-template-columns:20px 1fr 26px 26px 32px 30px;align-items:center;padding:7px 14px;cursor:pointer;border-top:1px solid rgba(255,255,255,.04);background:{{row.bg}}" style-hover="background:rgba(255,255,255,.05)">
+              <span style="display:flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;font:800 9px Archivo;color:{{row.qFg}};background:{{row.qBg}}">{{row.posLabel}}</span>
+              <span style="display:flex;align-items:center;gap:8px;min-width:0">
+                <dc-import name="Flag" url="{{row.flag}}" w="20" h="14" r="2" hint-size="20px,14px"></dc-import>
+                <span style="font:600 13px Barlow;color:#e3e9f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{row.name}}</span>
+              </span>
+              <span style="text-align:center;font:500 12px Barlow;color:#9aa4ba">{{row.P}}</span>
+              <span style="text-align:center;font:500 12px Barlow;color:#9aa4ba">{{row.W}}</span>
+              <span style="text-align:center;font:500 12px Barlow;color:#9aa4ba">{{row.GD}}</span>
+              <span style="text-align:right;font:800 13px Archivo;color:#fff">{{row.Pts}}</span>
+            </div>
+          </sc-for>
+          <div style="display:flex;gap:14px;padding:8px 14px;font:600 10px Barlow;color:#6f7c95;border-top:1px solid rgba(255,255,255,.05)">
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#1f8a5b;display:inline-block"></span>Advance</span>
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#b8902e;display:inline-block"></span>Best 3rd</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+  </sc-if>
+
+  <!-- ROAD VIEW -->
+  <sc-if value="{{isRoad}}" hint-placeholder-val="{{false}}">
+  <section style="max-width:920px;margin:0 auto;padding:22px">
+    <div style="background:linear-gradient(135deg,#0d2236,#0a1424);border:1px solid rgba(92,192,240,.28);border-radius:16px;padding:20px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+      <img src="https://flagcdn.com/w80/ar.png" style="width:64px;height:43px;border-radius:5px;object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.18),0 8px 20px rgba(0,0,0,.4)">
+      <div style="min-width:0;flex:1">
+        <div style="font:700 11px Archivo;letter-spacing:.22em;color:#5cc0f0">GROUP J WINNER · THE ALBICELESTE</div>
+        <div style="font:900 30px/1.05 Archivo;margin-top:3px">Argentina's Road to the Final</div>
+        <div style="font:600 13px Barlow;color:#9aa4ba;margin-top:5px">{{roadSubtitle}}</div>
+      </div>
+      <sc-if value="{{roadChampion}}" hint-placeholder-val="{{false}}">
+        <div style="text-align:center;padding:12px 18px;border-radius:12px;background:linear-gradient(180deg,rgba(227,178,60,.18),rgba(227,178,60,.05));border:1px solid rgba(227,178,60,.4)">
+          <div style="font:900 26px Archivo;color:#e3b23c;line-height:1">🏆</div>
+          <div style="font:800 11px Archivo;letter-spacing:.16em;color:#e3b23c;margin-top:5px">CHAMPIONS</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="margin-top:20px;position:relative;padding-left:8px">
+      <sc-for list="{{roadCards}}" as="rc" hint-placeholder-count="8">
+        <div style="display:flex;gap:16px;align-items:stretch">
+          <div style="display:flex;flex-direction:column;align-items:center;width:18px;flex:none">
+            <span style="width:14px;height:14px;border-radius:50%;background:{{rc.dotBg}};border:2px solid {{rc.dotBorder}};margin-top:22px;flex:none"></span>
+            <span style="flex:1;width:2px;background:{{rc.lineColor}}"></span>
+          </div>
+          <div onClick="{{rc.onOpen}}" style="flex:1;margin-bottom:14px;background:#0e1626;border:1px solid {{rc.cardBorder}};border-radius:13px;padding:13px 16px;cursor:pointer;transition:border-color .12s" style-hover="border-color:rgba(255,255,255,.3)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <span style="font:700 10px Archivo;letter-spacing:.13em;color:{{rc.stageColor}}">{{rc.stage}}</span>
+              <span style="font:600 10px Barlow;color:#6f7c95">{{rc.dateLabel}}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:9px">
+              <div style="display:flex;align-items:center;gap:9px;flex:1;min-width:0">
+                <span style="font:700 11px Archivo;color:#9aa4ba;width:54px">{{rc.locLabel}}</span>
+                <dc-import name="Flag" url="{{rc.oppFlagUrl}}" w="26" h="18" r="3" hint-size="26px,18px"></dc-import>
+                <span style="font:700 16px Archivo;color:#eef2f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{rc.oppName}}</span>
+              </div>
+              <sc-if value="{{rc.played}}" hint-placeholder-val="{{false}}">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <span style="font:800 18px Archivo;color:#fff;letter-spacing:.02em">{{rc.scoreLine}}</span>
+                  <span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;font:800 11px Archivo;color:{{rc.resFg}};background:{{rc.resBg}}">{{rc.result}}</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{rc.notPlayed}}" hint-placeholder-val="{{true}}">
+                <span style="font:700 11px Barlow;color:#7a86a0;white-space:nowrap">{{rc.kickoff}}</span>
+              </sc-if>
+            </div>
+            <sc-if value="{{rc.hasPens}}" hint-placeholder-val="{{false}}">
+              <div style="margin-top:6px;font:600 10px Barlow;color:#8793a8">{{rc.pens}}</div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+  </sc-if>
+
+  <!-- MODAL -->
+  <sc-if value="{{hasModal}}" hint-placeholder-val="{{false}}">
+    <div onClick="{{closeModal}}" style="position:fixed;inset:0;z-index:80;background:rgba(4,7,13,.74);backdrop-filter:blur(5px);display:flex;align-items:flex-start;justify-content:center;padding:34px 18px;overflow:auto;animation:fadeIn .14s ease">
+      <div onClick="{{stop}}" style="width:100%;max-width:520px;background:#0d1424;border:1px solid rgba(255,255,255,.1);border-radius:18px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6);animation:popIn .2s cubic-bezier(.2,.8,.3,1)">
+
+        <!-- MATCH MODAL -->
+        <sc-if value="{{modalIsMatch}}" hint-placeholder-val="{{false}}">
+          <div style="padding:16px 20px;background:linear-gradient(180deg,{{md.headBg}},transparent);border-bottom:1px solid rgba(255,255,255,.07);position:relative">
+            <button onClick="{{closeModal}}" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#cdd6e6;font-size:16px;cursor:pointer;line-height:1">×</button>
+            <div style="font:700 10px Archivo;letter-spacing:.18em;color:{{md.accent}}">{{md.roundName}}</div>
+            <div style="font:600 12px Barlow;color:#8793a8;margin-top:3px">{{md.numLabel}} · {{md.dateFull}}</div>
+          </div>
+          <div style="padding:20px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div onClick="{{md.homeOpen}}" style="flex:1;text-align:center;{{md.homeCursor}}">
+                <dc-import name="Flag" url="{{md.homeFlag}}" w="60" h="40" r="5" chip="{{md.homeChip}}" center="1" hint-size="60px,40px"></dc-import>
+                <div style="font:800 14px Archivo;margin-top:8px;color:{{md.homeColor}}">{{md.homeName}}</div>
+                <div style="font:600 10px Barlow;color:#6f7c95;margin-top:2px">{{md.homeSub}}</div>
+              </div>
+              <div style="text-align:center;flex:none;padding:0 6px">
+                <sc-if value="{{md.played}}" hint-placeholder-val="{{false}}"><div style="font:900 30px Archivo;color:#fff;white-space:nowrap">{{md.scoreLine}}</div></sc-if>
+                <sc-if value="{{md.notPlayed}}" hint-placeholder-val="{{true}}"><div style="font:900 20px Archivo;color:#566079">VS</div></sc-if>
+                <sc-if value="{{md.hasPens}}" hint-placeholder-val="{{false}}"><div style="font:600 9px Barlow;color:#8793a8;margin-top:3px;white-space:nowrap">{{md.pens}}</div></sc-if>
+                <sc-if value="{{md.notPlayed}}" hint-placeholder-val="{{true}}"><div style="font:700 9px Archivo;letter-spacing:.1em;color:#566079;margin-top:4px">{{md.statusText}}</div></sc-if>
+              </div>
+              <div onClick="{{md.awayOpen}}" style="flex:1;text-align:center;{{md.awayCursor}}">
+                <dc-import name="Flag" url="{{md.awayFlag}}" w="60" h="40" r="5" chip="{{md.awayChip}}" center="1" hint-size="60px,40px"></dc-import>
+                <div style="font:800 14px Archivo;margin-top:8px;color:{{md.awayColor}}">{{md.awayName}}</div>
+                <div style="font:600 10px Barlow;color:#6f7c95;margin-top:2px">{{md.awaySub}}</div>
+              </div>
+            </div>
+
+            <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:12px 14px">
+                <div style="font:700 9px Archivo;letter-spacing:.13em;color:#5d6880">VENUE LOCAL</div>
+                <div style="font:800 17px Archivo;margin-top:4px">{{md.host}}</div>
+                <div style="font:600 11px Barlow;color:#8793a8;margin-top:2px">{{md.stadium}}, {{md.city}}</div>
+              </div>
+              <div style="background:rgba(92,192,240,.07);border:1px solid rgba(92,192,240,.18);border-radius:11px;padding:12px 14px">
+                <div style="font:700 9px Archivo;letter-spacing:.13em;color:#5cc0f0">MALAYSIA (MYT)</div>
+                <div style="font:800 17px Archivo;margin-top:4px">{{md.myt}}</div>
+                <div style="font:600 11px Barlow;color:#8793a8;margin-top:2px">{{md.mytNote}}</div>
+              </div>
+            </div>
+
+            <sc-if value="{{md.played}}" hint-placeholder-val="{{false}}">
+              <div style="margin-top:16px">
+                <div style="font:700 10px Archivo;letter-spacing:.14em;color:#5d6880;margin-bottom:8px">GOALSCORERS</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px">
+                  <div>
+                    <sc-for list="{{md.scorersHome}}" as="sc" hint-placeholder-count="2">
+                      <div style="display:flex;align-items:center;gap:7px;padding:3px 0"><span style="font:800 11px Archivo;color:#5cc0f0;width:30px">{{sc.min}}</span><span style="font:600 12px Barlow;color:#dde4f1">{{sc.player}}</span></div>
+                    </sc-for>
+                    <sc-if value="{{md.noHomeScorers}}" hint-placeholder-val="{{false}}"><div style="font:500 12px Barlow;color:#566079;padding:3px 0">No goals</div></sc-if>
+                  </div>
+                  <div style="text-align:right">
+                    <sc-for list="{{md.scorersAway}}" as="sc" hint-placeholder-count="1">
+                      <div style="display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:3px 0"><span style="font:600 12px Barlow;color:#dde4f1">{{sc.player}}</span><span style="font:800 11px Archivo;color:#5cc0f0;width:30px;text-align:right">{{sc.min}}</span></div>
+                    </sc-for>
+                    <sc-if value="{{md.noAwayScorers}}" hint-placeholder-val="{{false}}"><div style="font:500 12px Barlow;color:#566079;padding:3px 0">No goals</div></sc-if>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{md.notPlayed}}" hint-placeholder-val="{{true}}">
+              <div style="margin-top:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:12px 14px">
+                <div style="font:600 12px Barlow;color:#9aa4ba">{{md.note}}</div>
+                <sc-if value="{{md.hasProjection}}" hint-placeholder-val="{{false}}">
+                  <div style="margin-top:8px;font:600 11px Barlow;color:#7a86a0">Projected on current standings: <span style="color:#cdd6e6">{{md.projHome}}</span> vs <span style="color:#cdd6e6">{{md.projAway}}</span></div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- TEAM MODAL -->
+        <sc-if value="{{modalIsTeam}}" hint-placeholder-val="{{false}}">
+          <div style="padding:18px 20px;background:linear-gradient(120deg,{{tm.color}}33,transparent);border-bottom:1px solid rgba(255,255,255,.07);position:relative">
+            <button onClick="{{closeModal}}" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#cdd6e6;font-size:16px;cursor:pointer;line-height:1">×</button>
+            <div style="display:flex;align-items:center;gap:14px">
+              <dc-import name="Flag" url="{{tm.flag}}" w="58" h="39" r="5" hint-size="58px,39px"></dc-import>
+              <div>
+                <div style="font:900 24px/1 Archivo">{{tm.name}}</div>
+                <div style="font:600 12px Barlow;color:#9aa4ba;margin-top:5px">{{tm.standingLine}}</div>
+              </div>
+            </div>
+            <sc-if value="{{tm.champion}}" hint-placeholder-val="{{false}}">
+              <div style="margin-top:12px;display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;background:rgba(227,178,60,.16);border:1px solid rgba(227,178,60,.4);font:800 11px Archivo;letter-spacing:.1em;color:#e3b23c">🏆 WORLD CHAMPIONS 2026</div>
+            </sc-if>
+          </div>
+          <div style="padding:18px 20px">
+            <div style="font:700 10px Archivo;letter-spacing:.14em;color:#5d6880;margin-bottom:10px">{{tm.fixturesLabel}}</div>
+            <sc-for list="{{tm.fixtures}}" as="fx" hint-placeholder-count="3">
+              <div onClick="{{fx.onOpen}}" style="display:flex;align-items:center;gap:11px;padding:10px 12px;margin-bottom:7px;background:#0e1626;border:1px solid rgba(255,255,255,.06);border-radius:11px;cursor:pointer" style-hover="border-color:rgba(255,255,255,.22)">
+                <div style="width:78px;flex:none">
+                  <div style="font:700 9px Archivo;letter-spacing:.06em;color:{{fx.stageColor}}">{{fx.stage}}</div>
+                  <div style="font:600 9px Barlow;color:#6f7c95;margin-top:2px">{{fx.dateShort}}</div>
+                </div>
+                <span style="font:700 10px Archivo;color:#7a86a0;width:30px">{{fx.loc}}</span>
+                <dc-import name="Flag" url="{{fx.oppFlag}}" w="24" h="16" r="3" hint-size="24px,16px"></dc-import>
+                <span style="flex:1;font:600 13px Barlow;color:#e3e9f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{fx.oppName}}</span>
+                <sc-if value="{{fx.played}}" hint-placeholder-val="{{false}}">
+                  <span style="font:800 14px Archivo;color:#fff">{{fx.scoreLine}}</span>
+                  <span style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;font:800 10px Archivo;color:{{fx.resFg}};background:{{fx.resBg}}">{{fx.result}}</span>
+                </sc-if>
+                <sc-if value="{{fx.notPlayed}}" hint-placeholder-val="{{true}}">
+                  <span style="font:700 10px Barlow;color:#7a86a0;white-space:nowrap">{{fx.kickoff}}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+            <div style="margin-top:6px;font:600 10px Barlow;color:#5d6880">Home/away local kick-off · tap a fixture for Malaysia time &amp; scorers</div>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:820},&quot;featuredPath&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Argentina&quot;,&quot;France&quot;,&quot;None&quot;],&quot;default&quot;:&quot;Argentina&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;startSimulated&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#e3b23c&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.STAGE_W=1724; this.STAGE_H=1060;
+    this.MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    this.WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const fp=(props&&props.featuredPath)||'Argentina';
+    this.state={view:'bracket',simulate:!!(props&&props.startSimulated),highlight:fp==='France'?'FRA':fp==='None'?'NONE':'ARG',modal:null};
+  }
+  componentDidMount(){
+    this.D=window.WC_DATA;
+    if(!this.D){this._iv=setInterval(()=>{if(window.WC_DATA){this.D=window.WC_DATA;clearInterval(this._iv);this.forceUpdate();requestAnimationFrame(()=>this.layout());}},60);}
+    this._rz=()=>this.layout();
+    window.addEventListener('resize',this._rz);
+    requestAnimationFrame(()=>this.layout());
+  }
+  componentDidUpdate(){ requestAnimationFrame(()=>this.layout()); }
+  componentWillUnmount(){ clearInterval(this._iv); window.removeEventListener('resize',this._rz); }
+  layout(){
+    if(!this._wrap||!this._stage||!this._sizer) return;
+    const s=Math.max(0.34,Math.min(1,(this._wrap.clientWidth-4)/this.STAGE_W));
+    this._stage.style.transform='scale('+s+')';
+    this._sizer.style.width=(this.STAGE_W*s)+'px';
+    this._sizer.style.height=(this.STAGE_H*s)+'px';
+  }
+  accent(){ return (this.props&&this.props.accent)||'#e3b23c'; }
+  flag(code){ const t=this.D.teams[code]; const iso=t&&t.iso; return {has:!!iso,url:iso?'https://flagcdn.com/w40/'+iso+'.png':'',big:iso?'https://flagcdn.com/w80/'+iso+'.png':''}; }
+  tname(code){ return this.D.teams[code]?this.D.teams[code].name:code; }
+  seedColor(label){ const m=/^([A-L])([12])$/.exec(label); if(m) return this.D.groupColors[m[1]]; if(label&&label[0]==='W') return '#33405c'; return '#566079'; }
+  seedSub(label){ let m=/^([A-L])1$/.exec(label); if(m) return 'Group '+m[1]+' · Winner'; m=/^([A-L])2$/.exec(label); if(m) return 'Group '+m[1]+' · Runner-up'; if(label==='3rd Place') return 'Best 3rd place'; m=/^W(\d+)$/.exec(label); if(m) return 'Winner Match '+m[1]; return ''; }
+  f12(H,Mi){ let h=((H+11)%12)+1; return h+':'+String(Mi).padStart(2,'0')+' '+(H<12?'AM':'PM'); }
+  fmt(date,time,ven){
+    const v=this.D.venues[ven]; const p=date.split('-').map(Number); const Y=p[0],Mo=p[1],D=p[2]; const tp=time.split(':').map(Number); const H=tp[0],Mi=tp[1];
+    const hd=new Date(Date.UTC(Y,Mo-1,D));
+    const dateFull=this.WD[hd.getUTCDay()]+', '+D+' '+this.MON[Mo-1]+' '+Y;
+    const dateShort=this.MON[Mo-1]+' '+D;
+    const host=this.f12(H,Mi)+' '+v.abbr;
+    const utc=Date.UTC(Y,Mo-1,D,H,Mi)-v.tz*3600000;
+    const m=new Date(utc+8*3600000);
+    const myt=this.f12(m.getUTCHours(),m.getUTCMinutes());
+    const same=(m.getUTCFullYear()===Y&&m.getUTCMonth()===Mo-1&&m.getUTCDate()===D);
+    const mytNote=same?('Same day · '+dateShort):(this.WD[m.getUTCDay()]+' '+m.getUTCDate()+' '+this.MON[m.getUTCMonth()]+' (next day)');
+    return {dateFull,dateShort,host,myt,mytNote,city:v.city,stadium:v.stadium};
+  }
+  pathSet(){ const h=this.state.highlight; if(h==='ARG') return new Set(this.D.argPath); if(h==='FRA') return new Set(this.D.fraPath); return new Set(); }
+  koMap(){ if(!this._ko){ this._ko={}; this.D.knockout.forEach(k=>this._ko[k.id]=k);} return this._ko; }
+  geom(){
+    if(this._geom) return this._geom;
+    const X=id=>{ if(id<=8)return 16; if(id<=16)return 1550; if(id<=20)return 204; if(id<=24)return 1352; if(id===25||id===26)return 392; if(id===27||id===28)return 1174; if(id===29)return 580; if(id===30)return 986; return 768; };
+    const W=id=>id===31?188:158, Hh=id=>id===31?104:72;
+    const ko=this.koMap(); const top=92,ch=72,step=124;
+    const cy=id=>{ if(id<=16){ const i=id<=8?(id-1):(id-9); return top+ch/2+i*step; } const f=ko[id].feeders; return (cy(f[0])+cy(f[1]))/2; };
+    const g={};
+    this.D.knockout.forEach(k=>{ const id=k.id; const c=cy(id); g[id]={x:X(id),cy:c,w:W(id),h:Hh(id),top:c-Hh(id)/2}; });
+    this._geom=g; return g;
+  }
+  slot(k,side){
+    const sim=this.state.simulate;
+    const code=side==='home'?k.homeCode:k.awayCode;
+    const seed=side==='home'?k.hsLabel:k.asLabel;
+    const sc=side==='home'?k.score[0]:k.score[1];
+    const rev=sim;
+    const winner=sim&&k.winner===code, loser=sim&&k.winner!==code;
+    const f=this.flag(code);
+    return {
+      rev, notRev:!rev, winner, loser, hasFlag:rev&&f.has, noFlag:rev&&!f.has, flag:f.url,
+      code, name:this.tname(code), score:String(sc),
+      codeColor:winner?'#fff':(loser?'#73809a':'#cfd8ea'),
+      nameColor:winner?'#ffffff':(loser?'#6f7c95':'#dde4f1'),
+      scoreColor:winner?'#36c98f':'#8a94ab', weight:winner?'700':'500',
+      chip:seed==='3rd Place'?'3rd':seed, chipColor:this.seedColor(seed), sub:this.seedSub(seed)
+    };
+  }
+  groupOf(code){ const gd=this.D.groupDef; return Object.keys(gd).find(g=>gd[g].includes(code)); }
+  buildBoxes(){
+    const g=this.geom(), ps=this.pathSet(), boxes=[], ko=this.koMap();
+    for(let id=1;id<=30;id++){
+      const k=ko[id]; const gm=g[id]; const hi=ps.has(id);
+      const ftimes=this.fmt(k.date,k.time,k.venue);
+      boxes.push({
+        id, left:gm.x, top:gm.top, w:gm.w,
+        numLabel:'MATCH '+id, dateLabel:ftimes.dateShort,
+        borderColor:hi?'#5cc0f0':'rgba(255,255,255,.09)',
+        shadow:hi?'0 0 0 1px rgba(92,192,240,.5),0 10px 26px rgba(92,192,240,.16)':'0 8px 22px rgba(0,0,0,.35)',
+        numColor:hi?'#5cc0f0':'#6f7c95',
+        home:this.slot(k,'home'), away:this.slot(k,'away'),
+        hasPens:this.state.simulate&&!!k.pens, pens:k.pens?('Penalties '+k.pens[0]+'–'+k.pens[1]):'',
+        onOpen:()=>this.openMatch(id)
+      });
+    }
+    return boxes;
+  }
+  buildConnectors(){
+    const g=this.geom(), ps=this.pathSet(), ko=this.koMap(), out=[];
+    for(let id=17;id<=31;id++){
+      const k=ko[id]; const pg=g[id];
+      k.feeders.forEach(f=>{
+        const cg=g[f]; const leftChild=cg.x<pg.x; const hi=ps.has(id)&&ps.has(f); let pts;
+        if(leftChild){ const cr=cg.x+cg.w, pl=pg.x, mid=(cr+pl)/2; pts=cr+','+cg.cy+' '+mid+','+cg.cy+' '+mid+','+pg.cy+' '+pl+','+pg.cy; }
+        else { const cl=cg.x, pr=pg.x+pg.w, mid=(cl+pr)/2; pts=cl+','+cg.cy+' '+mid+','+cg.cy+' '+mid+','+pg.cy+' '+pr+','+pg.cy; }
+        out.push({points:pts, stroke:hi?'#5cc0f0':'#26304a', sw:hi?3:1.5});
+      });
+    }
+    return out;
+  }
+  buildLabels(){
+    const xs=[[16,'ROUND OF 32'],[204,'ROUND OF 16'],[392,'QUARTER-FINALS'],[580,'SEMI-FINALS'],[768,'FINAL'],[986,'SEMI-FINALS'],[1174,'QUARTER-FINALS'],[1352,'ROUND OF 16'],[1550,'ROUND OF 32']];
+    return xs.map(([x,t])=>({x:x+(t==='FINAL'?94:79),text:t}));
+  }
+  buildFinal(){
+    const k=this.koMap()[31], g=this.geom()[31], sim=this.state.simulate;
+    const o={left:g.x,top:g.top,w:g.w,played:sim,notPlayed:!sim,onOpen:()=>this.openMatch(31)};
+    if(sim){ o.home=this.slot(k,'home'); o.away=this.slot(k,'away'); o.champName=this.tname(k.winner); }
+    return o;
+  }
+  buildGroups(){
+    const thirds=new Set(this.D.thirds.map(t=>t.code));
+    return Object.keys(this.D.groupDef).map(id=>{
+      const color=this.D.groupColors[id];
+      const rows=this.D.standings[id].map((r,i)=>{
+        const pos=i+1; const f=this.flag(r.code);
+        const adv=pos<=2; const best3=pos===3&&thirds.has(r.code);
+        return {
+          posLabel:String(pos), code:r.code, name:this.tname(r.code), hasFlag:f.has, noFlag:!f.has, flag:f.url,
+          P:r.p, W:r.w, GD:(r.gd>0?'+':'')+r.gd, Pts:r.pts,
+          qBg:adv?'#1f8a5b':best3?'#b8902e':'rgba(255,255,255,.06)', qFg:(adv||best3)?'#fff':'#6f7c95',
+          bg:adv?'rgba(31,138,91,.07)':best3?'rgba(184,144,46,.07)':'transparent',
+          onOpen:()=>this.openTeam(r.code)
+        };
+      });
+      return {id,color,rows};
+    });
+  }
+  resultMeta(diff){ if(diff>0) return {result:'W',resFg:'#fff',resBg:'#1f8a5b'}; if(diff<0) return {result:'L',resFg:'#fff',resBg:'#c0392b'}; return {result:'D',resFg:'#1a1407',resBg:'#b8902e'}; }
+  buildRoad(){
+    const ARG='ARG', sim=this.state.simulate, ko=this.koMap();
+    const cards=[];
+    const gms=this.D.groupMatches.filter(m=>m.group==='J'&&(m.homeCode===ARG||m.awayCode===ARG)).sort((a,b)=>a.md-b.md);
+    gms.forEach(m=>{
+      const isHome=m.homeCode===ARG; const opp=isHome?m.awayCode:m.homeCode;
+      const played=m.md<=2||sim; const af=isHome?m.score[0]:m.score[1], of=isHome?m.score[1]:m.score[0];
+      const f=this.flag(opp); const ft=this.fmt(m.date,m.time,m.venue); const rm=this.resultMeta(af-of);
+      cards.push({stage:'GROUP J · MD'+m.md, stageColor:'#56b6e8', dateLabel:ft.dateShort, locLabel:isHome?'ARG vs':'ARG @',
+        oppName:this.tname(opp), oppFlag:f.has, oppNoFlag:!f.has, oppFlagUrl:f.url,
+        played, notPlayed:!played, scoreLine:af+' – '+of, result:rm.result, resFg:rm.resFg, resBg:rm.resBg,
+        kickoff:ft.host+' / '+ft.myt+' MYT', hasPens:false,
+        dotBg:'#56b6e8', dotBorder:'#0e1626', lineColor:'#26304a', cardBorder:'rgba(255,255,255,.07)',
+        onOpen:()=>this.openMatch(m.id)});
+    });
+    const stageName={R32:'ROUND OF 32',R16:'ROUND OF 16',QF:'QUARTER-FINAL',SF:'SEMI-FINAL',F:'FINAL'};
+    this.D.argPath.forEach(id=>{
+      const k=ko[id]; const isHome=k.homeCode===ARG; const opp=isHome?k.awayCode:k.homeCode;
+      const oppSeed=isHome?k.asLabel:k.hsLabel; const ft=this.fmt(k.date,k.time,k.venue);
+      const af=isHome?k.score[0]:k.score[1], of=isHome?k.score[1]:k.score[0]; const rm=this.resultMeta(af-of);
+      if(sim){ const f=this.flag(opp);
+        cards.push({stage:stageName[k.round], stageColor:'#e3b23c', dateLabel:ft.dateShort, locLabel:'ARG vs',
+          oppName:this.tname(opp), oppFlag:f.has, oppNoFlag:!f.has, oppFlagUrl:f.url,
+          played:true, notPlayed:false, scoreLine:af+' – '+of, result:rm.result, resFg:rm.resFg, resBg:rm.resBg,
+          kickoff:'', hasPens:!!k.pens, pens:k.pens?('Penalties '+k.pens[0]+'–'+k.pens[1]):'',
+          dotBg:'#e3b23c', dotBorder:'#0e1626', lineColor:'#3a3320', cardBorder:'rgba(227,178,60,.3)',
+          onOpen:()=>this.openMatch(id)});
+      } else {
+        cards.push({stage:stageName[k.round], stageColor:'#8793a8', dateLabel:ft.dateShort, locLabel:'ARG vs',
+          oppName:this.seedSub(oppSeed)||'TBD', oppFlag:false, oppNoFlag:true, oppFlagUrl:'',
+          played:false, notPlayed:true, scoreLine:'', result:'', resFg:'', resBg:'',
+          kickoff:ft.host+' / '+ft.myt+' MYT', hasPens:false,
+          dotBg:'#1a2336', dotBorder:'#0e1626', lineColor:'#26304a', cardBorder:'rgba(255,255,255,.07)',
+          onOpen:()=>this.openMatch(id)});
+      }
+    });
+    return cards;
+  }
+  buildMatchModal(mid){
+    const sim=this.state.simulate; let k, isKO, round, group, md, played;
+    if(typeof mid==='number'){ k=this.koMap()[mid]; isKO=true; const rn={R32:'ROUND OF 32',R16:'ROUND OF 16',QF:'QUARTER-FINAL',SF:'SEMI-FINAL',F:'FINAL'}; round=rn[k.round]; played=sim; }
+    else { k=this.D.groupMatches.find(m=>m.id===mid); isKO=false; group=k.group; md=k.md; round='GROUP '+group; played=md<=2||sim; }
+    const ft=this.fmt(k.date,k.time,k.venue);
+    const hf=this.flag(k.homeCode), af=this.flag(k.awayCode);
+    const teamsKnown = !isKO || sim;
+    const o={
+      accent:isKO?(k.round==='F'?'#e3b23c':'#5cc0f0'):'#9b8cff', headBg:isKO?'rgba(92,192,240,.08)':'rgba(155,140,255,.08)',
+      roundName:round, numLabel:isKO?(k.round==='F'?'Final':'Match '+k.id):'Matchday '+md,
+      dateFull:ft.dateFull, host:ft.host, myt:ft.myt+' MYT', mytNote:ft.mytNote, stadium:ft.stadium, city:ft.city,
+      played, notPlayed:!played, hasPens:played&&!!k.pens, pens:k.pens?('Pens '+k.pens[0]+'–'+k.pens[1]):'',
+      scoreLine:k.score[0]+' – '+k.score[1], statusText:'SCHEDULED'
+    };
+    if(teamsKnown){
+      const hw=played&&k.winner===k.homeCode, aw=played&&k.winner===k.awayCode;
+      o.homeHasFlag=hf.has; o.homeNoFlag=!hf.has; o.homeFlag=hf.big; o.homeChip=k.homeCode; o.homeName=this.tname(k.homeCode); o.homeSub=this.groupOf(k.homeCode)?'Group '+this.groupOf(k.homeCode):''; o.homeColor=aw?'#73809a':'#fff'; o.homeOpen=()=>this.openTeam(k.homeCode); o.homeCursor='cursor:pointer';
+      o.awayHasFlag=af.has; o.awayNoFlag=!af.has; o.awayFlag=af.big; o.awayChip=k.awayCode; o.awayName=this.tname(k.awayCode); o.awaySub=this.groupOf(k.awayCode)?'Group '+this.groupOf(k.awayCode):''; o.awayColor=hw?'#73809a':'#fff'; o.awayOpen=()=>this.openTeam(k.awayCode); o.awayCursor='cursor:pointer';
+    } else {
+      o.homeHasFlag=false; o.homeNoFlag=true; o.homeChip=k.hsLabel==='3rd Place'?'3rd':k.hsLabel; o.homeName=k.hsLabel; o.homeSub=this.seedSub(k.hsLabel); o.homeColor='#cfd8ea'; o.homeCursor='';
+      o.awayHasFlag=false; o.awayNoFlag=true; o.awayChip=k.asLabel==='3rd Place'?'3rd':k.asLabel; o.awayName=k.asLabel; o.awaySub=this.seedSub(k.asLabel); o.awayColor='#cfd8ea'; o.awayCursor='';
+    }
+    if(played){
+      const sh=k.scorers.filter(s=>s.code===k.homeCode).map(s=>({min:s.min+"'",player:s.player+(s.pen?' (pen)':'')}));
+      const sa=k.scorers.filter(s=>s.code===k.awayCode).map(s=>({min:s.min+"'",player:s.player+(s.pen?' (pen)':'')}));
+      o.scorersHome=sh; o.scorersAway=sa; o.noHomeScorers=sh.length===0; o.noAwayScorers=sa.length===0;
+    } else {
+      o.note=isKO?('This tie pits the '+this.seedPhrase(k.hsLabel)+' against the '+this.seedPhrase(k.asLabel)+'. The kick-off is locked in — the teams are confirmed once the group stage finishes.'):('Matchday '+md+' kicks off as scheduled below.');
+      if(isKO){ const ph=this.projSeed(k.hsLabel), pa=this.projSeed(k.asLabel); o.hasProjection=!!(ph||pa); o.projHome=ph||'TBD'; o.projAway=pa||'TBD'; }
+      else o.hasProjection=false;
+    }
+    return o;
+  }
+  seedPhrase(label){ let m=/^([A-L])1$/.exec(label); if(m) return 'Group '+m[1]+' winner'; m=/^([A-L])2$/.exec(label); if(m) return 'Group '+m[1]+' runner-up'; if(label==='3rd Place') return 'best third-placed team'; m=/^W(\d+)$/.exec(label); if(m) return 'winner of Match '+m[1]; return 'qualifier'; }
+  projSeed(label){ const m=/^([A-L])([12])$/.exec(label); if(m) return this.tname(this.D.standings[m[1]][+m[2]-1].code); if(label==='3rd Place') return 'a best 3rd-placed team'; return null; }
+  buildTeamModal(code){
+    const sim=this.state.simulate, g=this.groupOf(code), color=this.D.groupColors[g], f=this.flag(code);
+    const st=this.D.standings[g]; const pos=st.findIndex(r=>r.code===code)+1; const rec=st[pos-1];
+    const ord=['1st','2nd','3rd','4th'][pos-1];
+    const o={name:this.tname(code), hasFlag:f.has, noFlag:!f.has, flag:f.big, color, champion:sim&&this.D.champion===code,
+      standingLine:'Group '+g+' · '+ord+' · '+rec.pts+' pts · '+rec.w+'W '+rec.d+'D '+rec.l+'L', fixturesLabel:'GROUP STAGE FIXTURES', fixtures:[]};
+    const gms=this.D.groupMatches.filter(m=>m.homeCode===code||m.awayCode===code).sort((a,b)=>a.md-b.md);
+    gms.forEach(m=>{
+      const isHome=m.homeCode===code, opp=isHome?m.awayCode:m.homeCode; const played=m.md<=2||sim;
+      const tf=isHome?m.score[0]:m.score[1], of=isHome?m.score[1]:m.score[0]; const ff=this.flag(opp); const ft=this.fmt(m.date,m.time,m.venue); const rm=this.resultMeta(tf-of);
+      o.fixtures.push({stage:'Matchday '+m.md, stageColor:'#56b6e8', dateShort:ft.dateShort, loc:isHome?'vs':'@', hasFlag:ff.has, noFlag:!ff.has, oppFlag:ff.url, oppName:this.tname(opp),
+        played, notPlayed:!played, scoreLine:tf+' – '+of, result:rm.result, resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.host, onOpen:()=>this.openMatch(m.id)});
+    });
+    if(sim){
+      const sn={R32:'Round of 32',R16:'Round of 16',QF:'Quarter-final',SF:'Semi-final',F:'Final'};
+      this.D.knockout.forEach(k=>{
+        if(k.homeCode!==code&&k.awayCode!==code) return;
+        const isHome=k.homeCode===code, opp=isHome?k.awayCode:k.homeCode; const tf=isHome?k.score[0]:k.score[1], of=isHome?k.score[1]:k.score[0];
+        const ff=this.flag(opp); const ft=this.fmt(k.date,k.time,k.venue); let rm=this.resultMeta(tf-of);
+        if(tf===of&&k.pens){ const wonPens=k.winner===code; rm={result:wonPens?'W':'L',resFg:'#fff',resBg:wonPens?'#1f8a5b':'#c0392b'}; }
+        o.fixtures.push({stage:sn[k.round], stageColor:'#e3b23c', dateShort:ft.dateShort, loc:isHome?'vs':'@', hasFlag:ff.has, noFlag:!ff.has, oppFlag:ff.url, oppName:this.tname(opp),
+          played:true, notPlayed:false, scoreLine:tf+' – '+of+(k.pens?' (p)':''), result:rm.result, resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.host, onOpen:()=>this.openMatch(k.id)});
+      });
+      o.fixturesLabel='ALL FIXTURES · GROUP TO KNOCKOUT';
+    }
+    return o;
+  }
+  openMatch(id){ this.setState({modal:{type:'match',id}}); }
+  openTeam(code){ this.setState({modal:{type:'team',code}}); }
+  closeModal(){ this.setState({modal:null}); }
+  tab(active){ return 'border:none;cursor:pointer;padding:7px 14px;border-radius:8px;font:700 13px Barlow;letter-spacing:.01em;transition:all .12s;'+(active?'background:#e3b23c;color:#1a1407':'background:transparent;color:#9aa4ba'); }
+  pill(active){ return 'border:none;cursor:pointer;padding:5px 11px;border-radius:7px;font:600 11px Barlow;transition:all .12s;'+(active?'background:#5cc0f0;color:#06121d':'background:transparent;color:#9aa4ba'); }
+  renderVals(){
+    const v={
+      wrapRef:el=>{this._wrap=el;this.layout();},
+      sizerRef:el=>{this._sizer=el;},
+      stageRef:el=>{this._stage=el;this.layout();},
+      stop:e=>{e.stopPropagation();},
+      setBracket:()=>this.setState({view:'bracket'}), setGroups:()=>this.setState({view:'groups'}), setRoad:()=>this.setState({view:'road'}),
+      toggleSim:()=>this.setState(s=>({simulate:!s.simulate})),
+      setHiArg:()=>this.setState({highlight:'ARG'}), setHiFra:()=>this.setState({highlight:'FRA'}), setHiNone:()=>this.setState({highlight:'NONE'}),
+      closeModal:()=>this.closeModal(),
+      isBracket:this.state.view==='bracket', isGroups:this.state.view==='groups', isRoad:this.state.view==='road',
+      tabBracket:this.tab(this.state.view==='bracket'), tabGroups:this.tab(this.state.view==='groups'), tabRoad:this.tab(this.state.view==='road'),
+      hiArgBtn:this.pill(this.state.highlight==='ARG'), hiFraBtn:this.pill(this.state.highlight==='FRA'), hiNoneBtn:this.pill(this.state.highlight==='NONE'),
+      simTrack:'position:relative;width:40px;height:22px;border-radius:12px;border:1px solid rgba(255,255,255,.14);cursor:pointer;transition:all .15s;background:'+(this.state.simulate?'#1f8a5b':'rgba(255,255,255,.08)'),
+      simKnob:'position:absolute;top:2px;left:'+(this.state.simulate?'20px':'2px')+';width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.4)',
+      simTextColor:this.state.simulate?'#36c98f':'#8793a8',
+      accent:this.accent(), stageW:this.STAGE_W, stageH:this.STAGE_H,
+      hasModal:!!this.state.modal, modalIsMatch:false, modalIsTeam:false
+    };
+    if(!this.D){ v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:true,played:false};v.groups=[];v.roadCards=[];v.roadSubtitle='';v.roadChampion=false; return v; }
+    if(this.state.view==='bracket'){ v.boxes=this.buildBoxes(); v.connectors=this.buildConnectors(); v.labels=this.buildLabels(); v.finalBox=this.buildFinal(); }
+    else { v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:!this.state.simulate,played:this.state.simulate,champName:this.tname(this.D.champion)}; }
+    if(this.state.view==='groups') v.groups=this.buildGroups(); else v.groups=[];
+    if(this.state.view==='road'){ v.roadCards=this.buildRoad(); v.roadChampion=this.state.simulate; v.roadSubtitle=this.state.simulate?'Five wins from the Round of 32 to glory at MetLife Stadium.':'Group J secured. The projected route to 19 July — tap a stage for kick-off times.'; }
+    else { v.roadCards=[];v.roadChampion=false;v.roadSubtitle=''; }
+    if(this.state.modal){
+      if(this.state.modal.type==='match'){ v.modalIsMatch=true; v.md=this.buildMatchModal(this.state.modal.id); }
+      else if(this.state.modal.type==='team'){ v.modalIsTeam=true; v.tm=this.buildTeamModal(this.state.modal.code); }
+    }
+    return v;
+  }
+}
+</script>
+
+<!-- Pre-register child components so they don't need to be fetched from disk -->
+<script>
+(function(){
+  var SLOT_HTML = '<div style="display:flex;align-items:center;gap:7px;padding:4px 9px;height:27px"><sc-if value="{{slot.rev}}" hint-placeholder-val="{{true}}"><sc-if value="{{slot.hasFlag}}" hint-placeholder-val="{{false}}"><img src="{{slot.flag}}" style="width:20px;height:14px;border-radius:2px;object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.14);flex:none"></sc-if><sc-if value="{{slot.noFlag}}" hint-placeholder-val="{{false}}"><span style="width:20px;height:14px;border-radius:2px;background:#2a3550;display:inline-block;flex:none"></span></sc-if><span style="flex:1;font:600 12px Barlow;color:{{slot.nameColor}};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{slot.name}}</span><span style="font:{{slot.weight}} 13px Archivo;color:{{slot.scoreColor}};flex:none">{{slot.score}}</span></sc-if><sc-if value="{{slot.notRev}}" hint-placeholder-val="{{false}}"><span style="display:flex;align-items:center;justify-content:center;min-width:22px;height:16px;padding:0 4px;border-radius:4px;font:800 9px Archivo;color:#fff;background:{{slot.chipColor}};flex:none">{{slot.chip}}</span><span style="flex:1;font:600 11px Barlow;color:#7a86a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{slot.sub}}</span></sc-if></div>';
+
+  var FLAG_HTML = '<div style="{{wrapStyle}}"><sc-if value="{{showImg}}" hint-placeholder-val="{{false}}"><img src="{{url}}" style="{{imgStyle}}"></sc-if><sc-if value="{{showChip}}" hint-placeholder-val="{{false}}"><div style="{{chipStyle}}">{{chip}}</div></sc-if><sc-if value="{{showBlank}}" hint-placeholder-val="{{true}}"><span style="{{blankStyle}}"></span></sc-if></div>';
+
+  var FLAG_JS = 'class Component extends DCLogic{\n  renderVals(){\n    const p=this.props||{};\n    const w=parseInt(p.w,10)||20, h=parseInt(p.h,10)||14, r=parseInt(p.r,10)||2;\n    const url=p.url||"";\n    const chip=p.chip||"";\n    const has=!!url;\n    const center=p.center==="1"||p.center===true;\n    const size="width:"+w+"px;height:"+h+"px;border-radius:"+r+"px";\n    return {\n      url, chip,\n      showImg:has, showChip:!has&&!!chip, showBlank:!has&&!chip,\n      wrapStyle:"flex:none;"+(center?"margin:0 auto;":"")+"display:"+(center?"block":"inline-flex"),\n      imgStyle:size+";object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.15);display:block"+(center?";margin:0 auto":""),\n      chipStyle:size+";background:#222d44;display:flex;align-items:center;justify-content:center;font:800 13px Archivo;color:#7a86a0"+(center?";margin:0 auto":""),\n      blankStyle:size+";background:#2a3550;display:inline-block;flex:none"\n    };\n  }\n}';
+
+  function register(){
+    if(typeof window.__dcUpdate==='undefined'){ setTimeout(register,10); return; }
+    window.__dcUpdate('Slot','html',SLOT_HTML,false);
+    window.__dcUpdate('Flag','html',FLAG_HTML,false);
+    window.__dcUpdate('Flag','js',FLAG_JS,false);
+  }
+  register();
+})();
+</script>
+
+<!-- Tournament data -->
+<script src="./project/wcData.js"></script>
+</body>
+</html>
