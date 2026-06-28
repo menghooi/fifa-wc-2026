@@ -366,10 +366,11 @@ class Component extends DCLogic {
     this.MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     this.WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const fp=(props&&props.featuredPath)||'Argentina';
+    this.D=window.WC_DATA||null;
     this.state={view:'bracket',simulate:!!(props&&props.startSimulated),highlight:fp==='France'?'FRA':fp==='None'?'NONE':'ARG',modal:null};
   }
   componentDidMount(){
-    this.D=window.WC_DATA;
+    if(!this.D){this.D=window.WC_DATA;if(this.D)this.forceUpdate();}
     if(!this.D){this._iv=setInterval(()=>{if(window.WC_DATA){this.D=window.WC_DATA;clearInterval(this._iv);this.forceUpdate();requestAnimationFrame(()=>this.layout());}},60);}
     this._rz=()=>this.layout();
     window.addEventListener('resize',this._rz);
