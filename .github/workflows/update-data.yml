@@ -1,0 +1,41 @@
+name: Update World Cup data
+
+# Near-live refresh: regenerate project/wcData.js from openfootball's
+# public-domain feed and commit it when results change. GitHub Pages
+# (deploy-from-branch) redeploys automatically on the new commit.
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 min (GitHub may delay under load)
+  workflow_dispatch: {}      # allow manual "Run workflow"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build wcData.js from openfootball
+        run: node scripts/build-wcdata.mjs
+
+      - name: Commit if data changed
+        run: |
+          if [ -n "$(git status --porcelain project/wcData.js)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add project/wcData.js
+            git commit -m "data: refresh World Cup results ($(date -u +%Y-%m-%dT%H:%MZ))"
+            git push
+          else
+            echo "No data changes."
+          fi

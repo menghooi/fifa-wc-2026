@@ -50,14 +50,10 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
       <div style="flex:1"></div>
 
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:9px">
-          <span style="font:600 11px Barlow;color:#8793a8;letter-spacing:.02em">As played</span>
-          <button onClick="{{toggleSim}}" aria-label="Simulate tournament" style="{{simTrack}}">
-            <span style="{{simKnob}}"></span>
-          </button>
-          <span style="font:700 11px Barlow;color:{{simTextColor}};letter-spacing:.02em">Simulate full tournament</span>
+        <div style="display:flex;align-items:center;gap:7px;font:600 11px Barlow;color:#36c98f;white-space:nowrap">
+          <span style="width:7px;height:7px;border-radius:50%;background:#36c98f;display:inline-block;box-shadow:0 0 0 3px rgba(54,201,143,.2)"></span>Live data
         </div>
-        <div style="font:600 11px Barlow;color:#5d6880;border-left:1px solid rgba(255,255,255,.1);padding-left:16px;white-space:nowrap">Updated 24 Jun 2026</div>
+        <div style="font:600 11px Barlow;color:#5d6880;border-left:1px solid rgba(255,255,255,.1);padding-left:16px;white-space:nowrap">{{updatedLabel}}</div>
       </div>
     </div>
   </header>
@@ -147,7 +143,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
   <section style="max-width:1500px;margin:0 auto;padding:22px">
     <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap">
       <h2 style="font:800 22px Archivo">Group Stage</h2>
-      <span style="font:600 13px Barlow;color:#8793a8">Matchdays 1–2 complete · Matchday 3 from 24 Jun. Tap a team for fixtures &amp; results.</span>
+      <span style="font:600 13px Barlow;color:#8793a8">{{groupsSubtitle}}</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;margin-top:14px">
       <sc-for list="{{groups}}" as="grp" hint-placeholder-count="12">
@@ -386,6 +382,7 @@ class Component extends DCLogic {
     this._sizer.style.height=(this.STAGE_H*s)+'px';
   }
   accent(){ return (this.props&&this.props.accent)||'#e3b23c'; }
+  updatedLabel(){ const t=this.D&&this.D.generatedAt; if(!t) return ''; const d=new Date(t); if(isNaN(d)) return ''; return 'Updated '+d.getUTCDate()+' '+this.MON[d.getUTCMonth()]+' '+d.getUTCFullYear(); }
   flag(code){ const t=this.D.teams[code]; const iso=t&&t.iso; return {has:!!iso,url:iso?'https://flagcdn.com/w40/'+iso+'.png':'',big:iso?'https://flagcdn.com/w80/'+iso+'.png':''}; }
   tname(code){ return this.D.teams[code]?this.D.teams[code].name:code; }
   seedColor(label){ const m=/^([A-L])([12])$/.exec(label); if(m) return this.D.groupColors[m[1]]; if(label&&label[0]==='W') return '#33405c'; return '#566079'; }
@@ -408,25 +405,32 @@ class Component extends DCLogic {
   koMap(){ if(!this._ko){ this._ko={}; this.D.knockout.forEach(k=>this._ko[k.id]=k);} return this._ko; }
   geom(){
     if(this._geom) return this._geom;
-    const X=id=>{ if(id<=8)return 16; if(id<=16)return 1550; if(id<=20)return 204; if(id<=24)return 1352; if(id===25||id===26)return 392; if(id===27||id===28)return 1174; if(id===29)return 580; if(id===30)return 986; return 768; };
-    const W=id=>id===31?188:158, Hh=id=>id===31?104:72;
     const ko=this.koMap(); const top=92,ch=72,step=124;
-    const cy=id=>{ if(id<=16){ const i=id<=8?(id-1):(id-9); return top+ch/2+i*step; } const f=ko[id].feeders; return (cy(f[0])+cy(f[1]))/2; };
+    // Derive layout from the real feeder tree (final = id 31, fed by the two semis).
+    const leaves=id=>{ const f=ko[id].feeders; return f?leaves(f[0]).concat(leaves(f[1])):[id]; };
+    const left=leaves(29), right=leaves(30); // 8 round-of-32 matches per half, in bracket order
+    const row={}, side={};
+    left.forEach((id,i)=>{row[id]=i;side[id]='L';}); right.forEach((id,i)=>{row[id]=i;side[id]='R';});
+    const nodeSide=id=>{ const f=ko[id].feeders; return f?nodeSide(f[0]):side[id]; };
+    const LX={R32:16,R16:204,QF:392,SF:580}, RX={R32:1550,R16:1352,QF:1174,SF:986}, FX=768;
+    const X=id=>{ const k=ko[id]; return k.round==='F'?FX:(nodeSide(id)==='L'?LX:RX)[k.round]; };
+    const W=id=>id===31?188:158, Hh=id=>id===31?104:72;
+    const cy=id=>{ const f=ko[id].feeders; return f?(cy(f[0])+cy(f[1]))/2 : top+ch/2+row[id]*step; };
     const g={};
     this.D.knockout.forEach(k=>{ const id=k.id; const c=cy(id); g[id]={x:X(id),cy:c,w:W(id),h:Hh(id),top:c-Hh(id)/2}; });
     this._geom=g; return g;
   }
   slot(k,side){
-    const sim=this.state.simulate;
     const code=side==='home'?k.homeCode:k.awayCode;
     const seed=side==='home'?k.hsLabel:k.asLabel;
     const sc=side==='home'?k.score[0]:k.score[1];
-    const rev=sim;
-    const winner=sim&&k.winner===code, loser=sim&&k.winner!==code;
+    const rev=!!(code&&this.D.teams[code]);   // team known -> show flag + name
+    const played=!!k.played;
+    const winner=played&&k.winner===code, loser=played&&!!k.winner&&k.winner!==code;
     const f=this.flag(code);
     return {
       rev, notRev:!rev, winner, loser, hasFlag:rev&&f.has, noFlag:rev&&!f.has, flag:f.url,
-      code, name:this.tname(code), score:String(sc),
+      code, name:this.tname(code), score:played?String(sc):'',
       codeColor:winner?'#fff':(loser?'#73809a':'#cfd8ea'),
       nameColor:winner?'#ffffff':(loser?'#6f7c95':'#dde4f1'),
       scoreColor:winner?'#36c98f':'#8a94ab', weight:winner?'700':'500',
@@ -446,7 +450,7 @@ class Component extends DCLogic {
         shadow:hi?'0 0 0 1px rgba(92,192,240,.5),0 10px 26px rgba(92,192,240,.16)':'0 8px 22px rgba(0,0,0,.35)',
         numColor:hi?'#5cc0f0':'#6f7c95',
         home:this.slot(k,'home'), away:this.slot(k,'away'),
-        hasPens:this.state.simulate&&!!k.pens, pens:k.pens?('Penalties '+k.pens[0]+'–'+k.pens[1]):'',
+        hasPens:!!k.played&&!!k.pens, pens:k.pens?('Penalties '+k.pens[0]+'–'+k.pens[1]):'',
         onOpen:()=>this.openMatch(id)
       });
     }
@@ -470,9 +474,9 @@ class Component extends DCLogic {
     return xs.map(([x,t])=>({x:x+(t==='FINAL'?94:79),text:t}));
   }
   buildFinal(){
-    const k=this.koMap()[31], g=this.geom()[31], sim=this.state.simulate;
-    const o={left:g.x,top:g.top,w:g.w,played:sim,notPlayed:!sim,onOpen:()=>this.openMatch(31)};
-    if(sim){ o.home=this.slot(k,'home'); o.away=this.slot(k,'away'); o.champName=this.tname(k.winner); }
+    const k=this.koMap()[31], g=this.geom()[31], played=!!k.played;
+    const o={left:g.x,top:g.top,w:g.w,played,notPlayed:!played,onOpen:()=>this.openMatch(31)};
+    if(played){ o.home=this.slot(k,'home'); o.away=this.slot(k,'away'); o.champName=k.winner?this.tname(k.winner):''; }
     return o;
   }
   buildGroups(){
@@ -494,36 +498,38 @@ class Component extends DCLogic {
     });
   }
   resultMeta(diff){ if(diff>0) return {result:'W',resFg:'#fff',resBg:'#1f8a5b'}; if(diff<0) return {result:'L',resFg:'#fff',resBg:'#c0392b'}; return {result:'D',resFg:'#1a1407',resBg:'#b8902e'}; }
+  featuredCode(){ return this.D.featured||'ARG'; }
   buildRoad(){
-    const ARG='ARG', sim=this.state.simulate, ko=this.koMap();
-    const cards=[];
-    const gms=this.D.groupMatches.filter(m=>m.group==='J'&&(m.homeCode===ARG||m.awayCode===ARG)).sort((a,b)=>a.md-b.md);
+    const T=this.featuredCode(), ko=this.koMap(), cards=[];
+    const fg=this.groupOf(T);
+    const gms=this.D.groupMatches.filter(m=>m.group===fg&&(m.homeCode===T||m.awayCode===T)).sort((a,b)=>a.md-b.md);
     gms.forEach(m=>{
-      const isHome=m.homeCode===ARG; const opp=isHome?m.awayCode:m.homeCode;
-      const played=m.md<=2||sim; const af=isHome?m.score[0]:m.score[1], of=isHome?m.score[1]:m.score[0];
-      const f=this.flag(opp); const ft=this.fmt(m.date,m.time,m.venue); const rm=this.resultMeta(af-of);
-      cards.push({stage:'GROUP J · MD'+m.md, stageColor:'#56b6e8', dateLabel:ft.dateShort, locLabel:isHome?'ARG vs':'ARG @',
+      const isHome=m.homeCode===T; const opp=isHome?m.awayCode:m.homeCode;
+      const played=!!m.played; const af=isHome?m.score[0]:m.score[1], of=isHome?m.score[1]:m.score[0];
+      const f=this.flag(opp); const ft=this.fmt(m.date,m.time,m.venue); const rm=this.resultMeta((af||0)-(of||0));
+      cards.push({stage:'GROUP '+fg+' · MD'+m.md, stageColor:'#56b6e8', dateLabel:ft.dateShort, locLabel:isHome?(T+' vs'):(T+' @'),
         oppName:this.tname(opp), oppFlag:f.has, oppNoFlag:!f.has, oppFlagUrl:f.url,
-        played, notPlayed:!played, scoreLine:af+' – '+of, result:rm.result, resFg:rm.resFg, resBg:rm.resBg,
+        played, notPlayed:!played, scoreLine:played?(af+' – '+of):'', result:played?rm.result:'', resFg:rm.resFg, resBg:rm.resBg,
         kickoff:ft.host+' / '+ft.myt+' MYT', hasPens:false,
         dotBg:'#56b6e8', dotBorder:'#0e1626', lineColor:'#26304a', cardBorder:'rgba(255,255,255,.07)',
         onOpen:()=>this.openMatch(m.id)});
     });
     const stageName={R32:'ROUND OF 32',R16:'ROUND OF 16',QF:'QUARTER-FINAL',SF:'SEMI-FINAL',F:'FINAL'};
-    this.D.argPath.forEach(id=>{
-      const k=ko[id]; const isHome=k.homeCode===ARG; const opp=isHome?k.awayCode:k.homeCode;
-      const oppSeed=isHome?k.asLabel:k.hsLabel; const ft=this.fmt(k.date,k.time,k.venue);
-      const af=isHome?k.score[0]:k.score[1], of=isHome?k.score[1]:k.score[0]; const rm=this.resultMeta(af-of);
-      if(sim){ const f=this.flag(opp);
-        cards.push({stage:stageName[k.round], stageColor:'#e3b23c', dateLabel:ft.dateShort, locLabel:'ARG vs',
+    const path=this.D.knockout.filter(k=>k.homeCode===T||k.awayCode===T).map(k=>k.id);
+    path.forEach(id=>{
+      const k=ko[id]; const isHome=k.homeCode===T; const opp=isHome?k.awayCode:k.homeCode;
+      const ft=this.fmt(k.date,k.time,k.venue); const known=!!(opp&&this.D.teams[opp]);
+      const af=isHome?k.score[0]:k.score[1], of=isHome?k.score[1]:k.score[0]; const rm=this.resultMeta((af||0)-(of||0));
+      if(k.played){ const f=this.flag(opp);
+        cards.push({stage:stageName[k.round], stageColor:'#e3b23c', dateLabel:ft.dateShort, locLabel:T+(isHome?' vs':' @'),
           oppName:this.tname(opp), oppFlag:f.has, oppNoFlag:!f.has, oppFlagUrl:f.url,
           played:true, notPlayed:false, scoreLine:af+' – '+of, result:rm.result, resFg:rm.resFg, resBg:rm.resBg,
           kickoff:'', hasPens:!!k.pens, pens:k.pens?('Penalties '+k.pens[0]+'–'+k.pens[1]):'',
           dotBg:'#e3b23c', dotBorder:'#0e1626', lineColor:'#3a3320', cardBorder:'rgba(227,178,60,.3)',
           onOpen:()=>this.openMatch(id)});
-      } else {
-        cards.push({stage:stageName[k.round], stageColor:'#8793a8', dateLabel:ft.dateShort, locLabel:'ARG vs',
-          oppName:this.seedSub(oppSeed)||'TBD', oppFlag:false, oppNoFlag:true, oppFlagUrl:'',
+      } else { const f=this.flag(opp);
+        cards.push({stage:stageName[k.round], stageColor:'#8793a8', dateLabel:ft.dateShort, locLabel:T+' vs',
+          oppName:known?this.tname(opp):'TBD', oppFlag:known&&f.has, oppNoFlag:!(known&&f.has), oppFlagUrl:f.url,
           played:false, notPlayed:true, scoreLine:'', result:'', resFg:'', resBg:'',
           kickoff:ft.host+' / '+ft.myt+' MYT', hasPens:false,
           dotBg:'#1a2336', dotBorder:'#0e1626', lineColor:'#26304a', cardBorder:'rgba(255,255,255,.07)',
@@ -533,12 +539,12 @@ class Component extends DCLogic {
     return cards;
   }
   buildMatchModal(mid){
-    const sim=this.state.simulate; let k, isKO, round, group, md, played;
-    if(typeof mid==='number'){ k=this.koMap()[mid]; isKO=true; const rn={R32:'ROUND OF 32',R16:'ROUND OF 16',QF:'QUARTER-FINAL',SF:'SEMI-FINAL',F:'FINAL'}; round=rn[k.round]; played=sim; }
-    else { k=this.D.groupMatches.find(m=>m.id===mid); isKO=false; group=k.group; md=k.md; round='GROUP '+group; played=md<=2||sim; }
+    let k, isKO, round, group, md, played;
+    if(typeof mid==='number'){ k=this.koMap()[mid]; isKO=true; const rn={R32:'ROUND OF 32',R16:'ROUND OF 16',QF:'QUARTER-FINAL',SF:'SEMI-FINAL',F:'FINAL'}; round=rn[k.round]; played=!!k.played; }
+    else { k=this.D.groupMatches.find(m=>m.id===mid); isKO=false; group=k.group; md=k.md; round='GROUP '+group; played=!!k.played; }
     const ft=this.fmt(k.date,k.time,k.venue);
     const hf=this.flag(k.homeCode), af=this.flag(k.awayCode);
-    const teamsKnown = !isKO || sim;
+    const teamsKnown = !isKO || !!(k.homeCode&&k.awayCode&&this.D.teams[k.homeCode]&&this.D.teams[k.awayCode]);
     const o={
       accent:isKO?(k.round==='F'?'#e3b23c':'#5cc0f0'):'#9b8cff', headBg:isKO?'rgba(92,192,240,.08)':'rgba(155,140,255,.08)',
       roundName:round, numLabel:isKO?(k.round==='F'?'Final':'Match '+k.id):'Matchday '+md,
@@ -559,9 +565,10 @@ class Component extends DCLogic {
       const sa=k.scorers.filter(s=>s.code===k.awayCode).map(s=>({min:s.min+"'",player:s.player+(s.pen?' (pen)':'')}));
       o.scorersHome=sh; o.scorersAway=sa; o.noHomeScorers=sh.length===0; o.noAwayScorers=sa.length===0;
     } else {
-      o.note=isKO?('This tie pits the '+this.seedPhrase(k.hsLabel)+' against the '+this.seedPhrase(k.asLabel)+'. The kick-off is locked in — the teams are confirmed once the group stage finishes.'):('Matchday '+md+' kicks off as scheduled below.');
-      if(isKO){ const ph=this.projSeed(k.hsLabel), pa=this.projSeed(k.asLabel); o.hasProjection=!!(ph||pa); o.projHome=ph||'TBD'; o.projAway=pa||'TBD'; }
-      else o.hasProjection=false;
+      o.note = !isKO ? ('Matchday '+md+' kicks off as scheduled below.')
+             : teamsKnown ? 'Both teams are confirmed — kick-off times shown below.'
+             : ('This tie pits the '+this.seedPhrase(k.hsLabel)+' against the '+this.seedPhrase(k.asLabel)+'. Teams are confirmed once the feeder matches finish.');
+      o.hasProjection=false;
     }
     return o;
   }
@@ -571,26 +578,27 @@ class Component extends DCLogic {
     const sim=this.state.simulate, g=this.groupOf(code), color=this.D.groupColors[g], f=this.flag(code);
     const st=this.D.standings[g]; const pos=st.findIndex(r=>r.code===code)+1; const rec=st[pos-1];
     const ord=['1st','2nd','3rd','4th'][pos-1];
-    const o={name:this.tname(code), hasFlag:f.has, noFlag:!f.has, flag:f.big, color, champion:sim&&this.D.champion===code,
+    const o={name:this.tname(code), hasFlag:f.has, noFlag:!f.has, flag:f.big, color, champion:this.D.champion===code,
       standingLine:'Group '+g+' · '+ord+' · '+rec.pts+' pts · '+rec.w+'W '+rec.d+'D '+rec.l+'L', fixturesLabel:'GROUP STAGE FIXTURES', fixtures:[]};
     const gms=this.D.groupMatches.filter(m=>m.homeCode===code||m.awayCode===code).sort((a,b)=>a.md-b.md);
     gms.forEach(m=>{
-      const isHome=m.homeCode===code, opp=isHome?m.awayCode:m.homeCode; const played=m.md<=2||sim;
-      const tf=isHome?m.score[0]:m.score[1], of=isHome?m.score[1]:m.score[0]; const ff=this.flag(opp); const ft=this.fmt(m.date,m.time,m.venue); const rm=this.resultMeta(tf-of);
+      const isHome=m.homeCode===code, opp=isHome?m.awayCode:m.homeCode; const played=!!m.played;
+      const tf=isHome?m.score[0]:m.score[1], of=isHome?m.score[1]:m.score[0]; const ff=this.flag(opp); const ft=this.fmt(m.date,m.time,m.venue); const rm=this.resultMeta((tf||0)-(of||0));
       o.fixtures.push({stage:'Matchday '+m.md, stageColor:'#56b6e8', dateShort:ft.dateShort, loc:isHome?'vs':'@', hasFlag:ff.has, noFlag:!ff.has, oppFlag:ff.url, oppName:this.tname(opp),
-        played, notPlayed:!played, scoreLine:tf+' – '+of, result:rm.result, resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.host, onOpen:()=>this.openMatch(m.id)});
+        played, notPlayed:!played, scoreLine:played?(tf+' – '+of):'', result:played?rm.result:'', resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.host, onOpen:()=>this.openMatch(m.id)});
     });
-    if(sim){
+    {
       const sn={R32:'Round of 32',R16:'Round of 16',QF:'Quarter-final',SF:'Semi-final',F:'Final'};
-      this.D.knockout.forEach(k=>{
-        if(k.homeCode!==code&&k.awayCode!==code) return;
-        const isHome=k.homeCode===code, opp=isHome?k.awayCode:k.homeCode; const tf=isHome?k.score[0]:k.score[1], of=isHome?k.score[1]:k.score[0];
-        const ff=this.flag(opp); const ft=this.fmt(k.date,k.time,k.venue); let rm=this.resultMeta(tf-of);
-        if(tf===of&&k.pens){ const wonPens=k.winner===code; rm={result:wonPens?'W':'L',resFg:'#fff',resBg:wonPens?'#1f8a5b':'#c0392b'}; }
-        o.fixtures.push({stage:sn[k.round], stageColor:'#e3b23c', dateShort:ft.dateShort, loc:isHome?'vs':'@', hasFlag:ff.has, noFlag:!ff.has, oppFlag:ff.url, oppName:this.tname(opp),
-          played:true, notPlayed:false, scoreLine:tf+' – '+of+(k.pens?' (p)':''), result:rm.result, resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.host, onOpen:()=>this.openMatch(k.id)});
+      const kos=this.D.knockout.filter(k=>k.homeCode===code||k.awayCode===code);
+      kos.forEach(k=>{
+        const isHome=k.homeCode===code, opp=isHome?k.awayCode:k.homeCode; const played=!!k.played;
+        const tf=isHome?k.score[0]:k.score[1], of=isHome?k.score[1]:k.score[0];
+        const ff=this.flag(opp); const ft=this.fmt(k.date,k.time,k.venue); let rm=this.resultMeta((tf||0)-(of||0));
+        if(played&&tf===of&&k.pens){ const wonPens=k.winner===code; rm={result:wonPens?'W':'L',resFg:'#fff',resBg:wonPens?'#1f8a5b':'#c0392b'}; }
+        o.fixtures.push({stage:sn[k.round], stageColor:'#e3b23c', dateShort:ft.dateShort, loc:isHome?'vs':'@', hasFlag:ff.has, noFlag:!ff.has, oppFlag:ff.url, oppName:opp?this.tname(opp):'TBD',
+          played, notPlayed:!played, scoreLine:played?(tf+' – '+of+(k.pens?' (p)':'')):'', result:played?rm.result:'', resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.host, onOpen:()=>this.openMatch(k.id)});
       });
-      o.fixturesLabel='ALL FIXTURES · GROUP TO KNOCKOUT';
+      if(kos.length) o.fixturesLabel='ALL FIXTURES · GROUP TO KNOCKOUT';
     }
     return o;
   }
@@ -616,13 +624,14 @@ class Component extends DCLogic {
       simKnob:'position:absolute;top:2px;left:'+(this.state.simulate?'20px':'2px')+';width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.4)',
       simTextColor:this.state.simulate?'#36c98f':'#8793a8',
       accent:this.accent(), stageW:this.STAGE_W, stageH:this.STAGE_H,
+      updatedLabel:this.updatedLabel(), groupsSubtitle:'Final group standings · tap a team for fixtures & results.',
       hasModal:!!this.state.modal, modalIsMatch:false, modalIsTeam:false
     };
     if(!this.D){ v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:true,played:false};v.groups=[];v.roadCards=[];v.roadSubtitle='';v.roadChampion=false; return v; }
     if(this.state.view==='bracket'){ v.boxes=this.buildBoxes(); v.connectors=this.buildConnectors(); v.labels=this.buildLabels(); v.finalBox=this.buildFinal(); }
-    else { v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:!this.state.simulate,played:this.state.simulate,champName:this.tname(this.D.champion)}; }
+    else { v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:true,played:false,champName:''}; }
     if(this.state.view==='groups') v.groups=this.buildGroups(); else v.groups=[];
-    if(this.state.view==='road'){ v.roadCards=this.buildRoad(); v.roadChampion=this.state.simulate; v.roadSubtitle=this.state.simulate?'Five wins from the Round of 32 to glory at MetLife Stadium.':'Group J secured. The projected route to 19 July — tap a stage for kick-off times.'; }
+    if(this.state.view==='road'){ const T=this.featuredCode(); v.roadCards=this.buildRoad(); v.roadChampion=this.D.champion===T; v.roadSubtitle=this.D.champion===T?('Champions of the world — the full road to glory.'):(this.tname(T)+'’s run through the 2026 World Cup — tap a stage for kick-off times.'); }
     else { v.roadCards=[];v.roadChampion=false;v.roadSubtitle=''; }
     if(this.state.modal){
       if(this.state.modal.type==='match'){ v.modalIsMatch=true; v.md=this.buildMatchModal(this.state.modal.id); }
