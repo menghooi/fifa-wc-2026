@@ -1,12 +1,15 @@
 name: Update World Cup data
 
-# Near-live refresh: regenerate project/wcData.js from openfootball's
-# public-domain feed and commit it when results change. GitHub Pages
-# (deploy-from-branch) redeploys automatically on the new commit.
+# Refresh project/wcData.js from openfootball's public-domain feed and
+# commit it when results change. GitHub Pages (deploy-from-branch)
+# redeploys automatically on the new commit.
+#
+# Manual-only: run from the Actions tab via "Run workflow". To make it
+# near-live later, re-add a `schedule:` trigger, e.g.
+#   schedule:
+#     - cron: "*/15 * * * *"
 on:
-  schedule:
-    - cron: "*/15 * * * *"   # every 15 min (GitHub may delay under load)
-  workflow_dispatch: {}      # allow manual "Run workflow"
+  workflow_dispatch: {}      # run manually from the Actions tab
 
 permissions:
   contents: write
