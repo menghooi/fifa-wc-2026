@@ -1,0 +1,57 @@
+name: Deploy site to Pages
+
+# Builds wcData.js fresh from openfootball's public-domain feed and
+# publishes the static site straight to GitHub Pages as an artifact.
+# Nothing is committed back to the repo, so history stays clean.
+#
+# Manual-only for now (run from the Actions tab). After you publish, you
+# can add triggers so it redeploys automatically, e.g.
+#   push:
+#     branches: [main]
+#   schedule:
+#     - cron: "*/15 * * * *"   # near-live (uses Actions minutes)
+on:
+  workflow_dispatch: {}
+
+# Required for the Actions-based Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy at a time; let an in-progress run finish
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build wcData.js from openfootball
+        run: node scripts/build-wcdata.mjs
+
+      - name: Assemble static site
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r project _site/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
