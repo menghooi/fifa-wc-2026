@@ -22,6 +22,17 @@ const FEATURED = "ARG"; // "[X]'s Road" highlight path; editorial, decide later
 const KO_ROUND = { "Round of 32":"R32", "Round of 16":"R16", "Quarter-final":"QF",
   "Semi-final":"SF", "Final":"F" };
 
+// Static feeder tree (openfootball match numbers). The bracket structure never
+// changes during the tournament, but the feed REPLACES a "W73" slot with the
+// resolved team name once that match is played — so we can't read feeders from
+// the live labels. Keyed by match num; values are [homeFeederNum, awayFeederNum].
+const FEEDERS_NUM = {
+  89:[74,77], 90:[73,75], 91:[76,78], 92:[79,80],
+  93:[83,84], 94:[81,82], 95:[86,88], 96:[85,87],
+  97:[89,90], 98:[93,94], 99:[91,92], 100:[95,96],
+  101:[97,98], 102:[99,100], 104:[101,102],
+};
+
 async function getJSON(name){
   const r = await fetch(`${BASE}/${name}`);
   if(!r.ok) throw new Error(`fetch ${name} -> ${r.status}`);
@@ -30,7 +41,9 @@ async function getJSON(name){
 const slug = s => s.toLowerCase().replace(/\(.*?\)/g,"").trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 const cleanCity = s => s.replace(/\s*\(.*?\)\s*/g,"").trim();
 const isoFromUnicode = u => (u.match(/1F1[0-9A-F]{2}/g)||[]).map(c=>String.fromCharCode(parseInt(c,16)-0x1F1E6+97)).join("");
-const minNum = m => parseInt(String(m).replace("+","").match(/\d+/)?.[0] ?? "0", 10);
+// base minute (before "+") for sorting; raw label ("90+4") for display
+const minNum = m => parseInt(String(m).split("+")[0].match(/\d+/)?.[0] ?? "0", 10);
+const minLabel = m => String(m).replace(/\s+/g,"");
 const isPlayed = m => !!(m.score && Array.isArray(m.score.ft) && m.score.ft.length===2);
 
 function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc){
@@ -68,7 +81,9 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc){
   }
 
   // ---- group matches -----------------------------------------------------
-  const scorers = (goals, c) => (goals||[]).map(g => ({ code:c, player:g.name, min:minNum(g.minute), pen:!!g.penalty }));
+  // Goals are listed under the team that BENEFITS (own goals included), so the
+  // count is correct; we just carry pen/og flags so the UI can tag them.
+  const scorers = (goals, c) => (goals||[]).map(g => ({ code:c, player:g.name, min:minNum(g.minute), minLabel:minLabel(g.minute), pen:!!g.penalty, og:!!g.owngoal }));
   const groupMatches = [];
   let gi = 0;
   for(const m of wc.matches){
@@ -81,7 +96,7 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc){
       id: "G"+(++gi), group: (m.group||"").replace("Group ","").trim(), md: +md[1],
       homeCode: home, awayCode: away, venue: venueOf(m.ground),
       date: m.date, time: (m.time||"").split(" ")[0],
-      score: ft, played,
+      score: ft, ht: played ? (m.score.ht || null) : null, played,
       scorers: played ? [...scorers(m.goals1, home), ...scorers(m.goals2, away)].sort((a,b)=>a.min-b.min) : [],
     });
   }
@@ -111,31 +126,29 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc){
 
   // ---- knockout (real feeder tree from "W<num>" labels) ------------------
   const koSrc = wc.matches.filter(m => KO_ROUND[m.round]);
-  const byNum = {}; koSrc.forEach(m => byNum[m.num] = m);
   // 73..102 -> 1..30, Final(104) -> 31, third-place play-off(103) -> skipped
   const idOf = num => num === 104 ? 31 : num === 103 ? null : num - 72;
-  const feederIds = team => { const w = /^W(\d+)$/.exec(team||""); return w ? idOf(+w[1]) : null; };
-  // seed labels for R32 (group winners/runners-up/3rd) — taken from the source pairing where known
+  // feeders in bracket-id space (1..31), from the static structure above
+  const feedersOf = num => { const f = FEEDERS_NUM[num]; return f ? [idOf(f[0]), idOf(f[1])] : null; };
   const knockout = [];
   for(const m of koSrc){
     const id = idOf(m.num);
     if(id === null) continue;                     // skip the third-place play-off (no slot in this bracket)
     const round = KO_ROUND[m.round];
-    const fa = feederIds(m.team1), fb = feederIds(m.team2);
-    const home = code(m.team1), away = code(m.team2);
+    const feeders = feedersOf(m.num);             // [homeFeederId, awayFeederId] or null (R32)
+    const home = code(m.team1), away = code(m.team2);  // null while a slot is still "W##"/"L##"
     const played = isPlayed(m);
     const ft = played ? m.score.ft : [null, null];
     const pens = (m.score && m.score.p) ? m.score.p : null;
     let winner = null;
     if(played){ winner = ft[0]>ft[1] ? home : ft[0]<ft[1] ? away : pens ? (pens[0]>pens[1]?home:away) : null; }
     knockout.push({
-      id, num:m.num, round,
-      feeders: (fa && fb) ? [fa, fb] : null,
-      hsLabel: home ? (teams[home]?.name||home) : (fa ? "W"+fa : (m.team1||"")),
-      asLabel: away ? (teams[away]?.name||away) : (fb ? "W"+fb : (m.team2||"")),
+      id, num:m.num, round, feeders,
+      hsLabel: home ? (teams[home]?.name||home) : (feeders ? "W"+feeders[0] : (m.team1||"")),
+      asLabel: away ? (teams[away]?.name||away) : (feeders ? "W"+feeders[1] : (m.team2||"")),
       homeCode: home, awayCode: away,
       venue: venueOf(m.ground), date: m.date, time: (m.time||"").split(" ")[0],
-      score: ft, pens, winner, played,
+      score: ft, ht: played ? (m.score.ht || null) : null, pens, winner, played,
       scorers: played ? [...scorers(m.goals1, home), ...scorers(m.goals2, away)].sort((a,b)=>a.min-b.min) : [],
     });
   }
@@ -149,7 +162,7 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc){
   return { generatedAt: new Date().toISOString(), source: "openfootball/worldcup.json",
     champion, venues, teams, groupDef, groupColors: GROUP_COLORS,
     groupMatches, standings, thirds, knockout,
-    featured: FEATURED, argPath: pathFor("ARG"), fraPath: pathFor("FRA") };
+    featured: FEATURED, featuredPath: pathFor(FEATURED) };
 }
 
 const [teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc] = await Promise.all([

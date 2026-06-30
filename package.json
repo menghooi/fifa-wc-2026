@@ -1,0 +1,14 @@
+{
+  "name": "fifa-wc-2026",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FIFA World Cup 2026 — Road to the Final. Live bracket and Malaysia-time (MYT) kick-offs, built from openfootball's public-domain data feed.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-wcdata.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

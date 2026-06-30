@@ -4,14 +4,16 @@ name: Deploy site to Pages
 # publishes the static site straight to GitHub Pages as an artifact.
 # Nothing is committed back to the repo, so history stays clean.
 #
-# Manual-only for now (run from the Actions tab). After you publish, you
-# can add triggers so it redeploys automatically, e.g.
-#   push:
-#     branches: [main]
-#   schedule:
-#     - cron: "*/15 * * * *"   # near-live (uses Actions minutes)
+# Triggers:
+#   - manual (Actions tab)
+#   - a schedule during the tournament so results and the filling bracket
+#     stay current without anyone pressing a button. Comment the schedule
+#     back out to return to fully manual deploys.
 on:
   workflow_dispatch: {}
+  schedule:
+    # every 3 hours (UTC). Tighten to "*/30 * * * *" on match days if wanted.
+    - cron: "0 */3 * * *"
 
 # Required for the Actions-based Pages deployment
 permissions:
