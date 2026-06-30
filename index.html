@@ -101,8 +101,15 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
   <sc-if value="{{isBracket}}" hint-placeholder-val="{{true}}">
   <section>
    <div ref="{{wrapRef}}">
-    <!-- DESKTOP BRACKET -->
+    <!-- DESKTOP BRACKET (also the mobile "full bracket", pannable at fixed size) -->
     <sc-if value="{{bracketWide}}" hint-placeholder-val="{{true}}">
+    <sc-if value="{{mobileFull}}" hint-placeholder-val="{{false}}">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px 6px">
+      <button onClick="{{goRounds}}" style="border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#cdd5e6;cursor:pointer;padding:7px 12px;border-radius:9px;font:700 12px Barlow">‹ Rounds</button>
+      <span style="font:600 11px Barlow;color:#5d6880">Full bracket · drag to pan</span>
+    </div>
+    </sc-if>
+    <sc-if value="{{bracketDesktopHeader}}" hint-placeholder-val="{{true}}">
     <div style="max-width:1760px;margin:0 auto;padding:16px 22px 4px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
       <sc-if value="{{showHighlight}}" hint-placeholder-val="{{true}}">
       <div style="display:flex;align-items:center;gap:9px">
@@ -120,8 +127,9 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
         <span style="opacity:.7">Tap any fixture for kick-off times &amp; details</span>
       </div>
     </div>
+    </sc-if>
 
-    <div style="overflow:auto;padding:8px 22px 22px">
+    <div ref="{{panRef}}" style="overflow:auto;padding:8px 22px 22px;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;{{panExtra}}">
       <div ref="{{sizerRef}}" style="position:relative;margin:0 auto">
         <div ref="{{stageRef}}" style="position:absolute;top:0;left:0;width:{{stageW}}px;height:{{stageH}}px;transform-origin:top left">
           <svg width="{{stageW}}" height="{{stageH}}" style="position:absolute;top:0;left:0;overflow:visible;pointer-events:none">
@@ -188,7 +196,10 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
           <button onClick="{{rt.onClick}}" style="{{rt.style}};flex:1">{{rt.label}}</button>
         </sc-for>
       </div>
-      <div style="font:800 16px Archivo;margin-bottom:10px">{{mobileRoundTitle}}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+        <div style="font:800 16px Archivo">{{mobileRoundTitle}}</div>
+        <button onClick="{{goFull}}" style="border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#cdd5e6;cursor:pointer;padding:6px 11px;border-radius:9px;font:700 12px Barlow;white-space:nowrap">⤢ Full bracket</button>
+      </div>
       <sc-for list="{{mobileBoxes}}" as="box" hint-placeholder-count="16">
         <div onClick="{{box.onOpen}}" style="margin-bottom:10px;border-radius:11px;overflow:hidden;background:#111a2b;border:1px solid {{box.borderColor}};box-shadow:0 8px 22px rgba(0,0,0,.35);cursor:pointer">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.05)">
@@ -481,7 +492,8 @@ class Component extends DCLogic {
     this.WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     this.D=window.WC_DATA||null;
     const hf=!props||props.highlightFeatured!==false;
-    this.state={view:'bracket',highlight:hf?'FEAT':'NONE',mobileRound:'R32',modal:null};
+    this.state={view:'bracket',highlight:hf?'FEAT':'NONE',mobileRound:'R32',mobileFull:false,modal:null};
+    this.MOBILE_FULL_SCALE=1; // fixed, native size on mobile "full bracket" — pan to explore
   }
   componentDidMount(){
     if(!this.D){this.D=window.WC_DATA;if(this.D)this.forceUpdate();}
@@ -499,11 +511,39 @@ class Component extends DCLogic {
     if(!this._wrap) return;
     const narrow=this._wrap.clientWidth<760;
     if(narrow!==this._narrow){ this._narrow=narrow; this.forceUpdate(); }
-    if(narrow||!this._stage||!this._sizer) return;   // mobile uses a flow layout, not the scaled stage
-    const s=Math.max(0.5,Math.min(1,(this._wrap.clientWidth-4)/this.STAGE_W));
+    const full=narrow&&this.state.mobileFull;                  // mobile "full bracket" = fixed-size, pannable
+    if((narrow&&!full)||!this._stage||!this._sizer) return;    // mobile rounds view uses a flow layout, not the scaled stage
+    const s=full ? this.MOBILE_FULL_SCALE : Math.max(0.5,Math.min(1,(this._wrap.clientWidth-4)/this.STAGE_W));
     this._stage.style.transform='scale('+s+')';
     this._sizer.style.width=(this.STAGE_W*s)+'px';
     this._sizer.style.height=(this.STAGE_H*s)+'px';
+    // on opening the full bracket, jump to the featured team's furthest round (one-shot, so later resizes/ticks don't fight manual panning)
+    if(full&&this._centerPending&&this._pan){ this._centerPending=false; this.centerFeatured(s); }
+  }
+  // scroll the pannable full bracket so the featured team's deepest knockout match sits in view's centre
+  centerFeatured(scale){
+    if(this.state.highlight!=='FEAT'||!this.D) return;
+    const fp=this.featuredPath(); if(!fp.length||!this._stage) return;
+    const g=this.geom()[fp[fp.length-1]]; if(!g) return;   // featuredPath is id-ascending, so last = furthest round
+    const p=this._pan;
+    // stage origin in scroll-content coords — accounts for the container's padding & any centring offset
+    const sr=this._stage.getBoundingClientRect(), pr=p.getBoundingClientRect();
+    const offX=(sr.left-pr.left)+p.scrollLeft, offY=(sr.top-pr.top)+p.scrollTop;
+    p.scrollLeft=offX+(g.x+g.w/2)*scale-p.clientWidth/2;
+    p.scrollTop=offY+g.cy*scale-p.clientHeight/2;
+  }
+  // Drag-to-pan the scroll container with a mouse (touch pans natively via overflow:auto).
+  // A drag past threshold is swallowed so it never registers as a click that opens a fixture.
+  initPan(el){
+    this._pan=el;
+    if(!el||el._panInit) return; el._panInit=1;
+    let sx,sy,sl,st,down=false,panned=false;
+    // clear any stale pan flag on every press (incl. touch) so it can't eat a later tap; only mouse drives drag-pan
+    el.addEventListener('pointerdown',e=>{ panned=false; if(e.pointerType!=='mouse'||e.button!==0) return; down=true;sx=e.clientX;sy=e.clientY;sl=el.scrollLeft;st=el.scrollTop; });
+    el.addEventListener('pointermove',e=>{ if(!down) return; const dx=e.clientX-sx,dy=e.clientY-sy; if(Math.abs(dx)+Math.abs(dy)>6){ el.scrollLeft=sl-dx; el.scrollTop=st-dy; if(el.scrollLeft!==sl||el.scrollTop!==st){ panned=true; el.style.cursor='grabbing'; } } });
+    const up=()=>{down=false;el.style.cursor='';}; el.addEventListener('pointerup',up); el.addEventListener('pointerleave',up);
+    // swallow the click only when a drag actually scrolled the bracket (so plain/draggy clicks still open a fixture)
+    el.addEventListener('click',e=>{ if(panned){ e.stopPropagation();e.preventDefault();panned=false; } },true);
   }
   accent(){ return (this.props&&this.props.accent)||'#e3b23c'; }
   updatedLabel(){ const t=this.D&&this.D.generatedAt; if(!t) return ''; const d=new Date(t); if(isNaN(d)) return ''; return 'Updated '+d.getUTCDate()+' '+this.MON[d.getUTCMonth()]+' '+d.getUTCFullYear(); }
@@ -858,6 +898,9 @@ class Component extends DCLogic {
       wrapRef:el=>{this._wrap=el;this.layout();},
       sizerRef:el=>{this._sizer=el;},
       stageRef:el=>{this._stage=el;this.layout();},
+      panRef:el=>this.initPan(el),
+      goFull:()=>{ this._centerPending=true; this.setState({mobileFull:true}); },
+      goRounds:()=>this.setState({mobileFull:false}),
       stop:e=>{e.stopPropagation();},
       setBracket:()=>this.setState({view:'bracket'}), setGroups:()=>this.setState({view:'groups'}), setRoad:()=>this.setState({view:'road'}), setFixtures:()=>this.setState({view:'fixtures'}),
       setHiFeat:()=>this.setState({highlight:'FEAT'}), setHiNone:()=>this.setState({highlight:'NONE'}),
@@ -869,6 +912,7 @@ class Component extends DCLogic {
       roadTabLabel:'Road', fixturesTabLabel:'Fixtures',
       hasModal:!!this.state.modal, modalIsMatch:false, modalIsTeam:false,
       bracketMobile:false, mobileRoundTabs:[], mobileBoxes:[], mobileRoundTitle:'',
+      showStage:false, bracketDesktopHeader:false, mobileFull:false, panExtra:'',
       showHighlight:false, hiFeatLabel:'Featured', hiFeatBtn:this.pill(false), hiNoneBtn:this.pill(true),
       bannerShow:false
     };
@@ -881,9 +925,14 @@ class Component extends DCLogic {
     const fp=this.featuredPath();
     v.showHighlight=this.state.view==='bracket'&&!this._narrow&&fp.length>0;
     v.hiFeatLabel=this.tname(T); v.hiFeatBtn=this.pill(this.state.highlight==='FEAT'); v.hiNoneBtn=this.pill(this.state.highlight==='NONE');
-    v.bracketWide=this.state.view==='bracket'&&!this._narrow;
-    v.bracketMobile=this.state.view==='bracket'&&this._narrow;
-    if(this.state.view==='bracket'&&!this._narrow){ v.boxes=this.buildBoxes(); v.connectors=this.buildConnectors(); v.labels=this.buildLabels(); v.finalBox=this.buildFinal(); }
+    const onBracket=this.state.view==='bracket';
+    v.mobileFull=onBracket&&this._narrow&&this.state.mobileFull;
+    v.showStage=onBracket&&(!this._narrow||v.mobileFull);   // scaled desktop stage: full-width on desktop, fixed-size/pannable on mobile
+    v.bracketDesktopHeader=onBracket&&!this._narrow;
+    v.bracketWide=v.showStage;
+    v.panExtra=v.mobileFull?'height:74vh;overscroll-behavior:contain;cursor:grab':'';
+    v.bracketMobile=onBracket&&this._narrow&&!this.state.mobileFull;
+    if(v.showStage){ v.boxes=this.buildBoxes(); v.connectors=this.buildConnectors(); v.labels=this.buildLabels(); v.finalBox=this.buildFinal(); }
     else { v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:true,played:false,champName:''}; }
     if(v.bracketMobile){ const m=this.buildMobile(); v.mobileRoundTabs=m.tabs; v.mobileBoxes=m.boxes; v.mobileRoundTitle=m.title; }
     if(this.state.view==='groups') v.groups=this.buildGroups(); else v.groups=[];
