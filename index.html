@@ -428,6 +428,15 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
                 </div>
               </div>
             </sc-if>
+            <sc-if value="{{md.hasShootout}}" hint-placeholder-val="{{false}}">
+              <div style="margin-top:14px;background:rgba(227,178,60,.09);border:1px solid rgba(227,178,60,.28);border-radius:11px;padding:11px 14px;display:flex;align-items:center;gap:10px">
+                <span style="font-size:16px">🥅</span>
+                <div>
+                  <div style="font:700 9px Archivo;letter-spacing:.14em;color:#e3b23c">PENALTY SHOOTOUT</div>
+                  <div style="font:700 13px Barlow;color:#efe2c4;margin-top:2px">{{md.shootoutLine}}</div>
+                </div>
+              </div>
+            </sc-if>
             <sc-if value="{{md.showNote}}" hint-placeholder-val="{{false}}">
               <div style="margin-top:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:12px 14px">
                 <div style="font:600 12px Barlow;color:#9aa4ba">{{md.note}}</div>
@@ -736,7 +745,8 @@ class Component extends DCLogic {
       dateFull:ft.dateFull, host:ft.host, myt:ft.myt+' MYT', mytNote:ft.mytNote, stadium:ft.stadium, city:ft.city,
       played, notPlayed:!played, hasPens:played&&!!k.pens, pens:k.pens?('Pens '+k.pens[0]+'–'+k.pens[1]):'',
       hasHt:played&&!!k.ht, htLine:k.ht?('HT '+k.ht[0]+'–'+k.ht[1]):'',
-      scoreLine:k.score[0]+' – '+k.score[1], statusText:'SCHEDULED'
+      scoreLine:k.score[0]+' – '+k.score[1]+(k.aet?' (AET)':''), statusText:'SCHEDULED',
+      hasShootout:false, shootoutLine:''
     };
     o.canAddCal=!played;
     o.onAddCal=()=>this.addToCalendar((o.homeName||'TBD')+' vs '+(o.awayName||'TBD')+' · WC2026 '+round, ft.utc, 120, ft.stadium+', '+ft.city, k.id);
@@ -754,6 +764,10 @@ class Component extends DCLogic {
       const sh=k.scorers.filter(s=>s.code===k.homeCode).map(mk);
       const sa=k.scorers.filter(s=>s.code===k.awayCode).map(mk);
       o.scorersHome=sh; o.scorersAway=sa; o.noHomeScorers=sh.length===0; o.noAwayScorers=sa.length===0;
+      // shootout result (openfootball gives only the aggregate tally, not per-taker)
+      o.hasShootout = !!(k.pens && k.winner);
+      o.shootoutLine = o.hasShootout ? (this.tname(k.winner)+' won '+Math.max(k.pens[0],k.pens[1])+'–'+Math.min(k.pens[0],k.pens[1])+' on penalties') : '';
+      if(o.hasShootout) o.hasPens=false; // shootout box already states the tally; drop the small "Pens 5–4" line
       o.hasProjection=false;
     } else {
       // only the undecided-KO case needs an explanatory note; for confirmed and

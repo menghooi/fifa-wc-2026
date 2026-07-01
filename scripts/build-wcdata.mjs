@@ -138,17 +138,21 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc){
     const feeders = feedersOf(m.num);             // [homeFeederId, awayFeederId] or null (R32)
     const home = code(m.team1), away = code(m.team2);  // null while a slot is still "W##"/"L##"
     const played = isPlayed(m);
-    const ft = played ? m.score.ft : [null, null];
+    // openfootball keeps ft = score after 90', et = aggregate after extra time,
+    // p = penalty-shootout tally. Show the post-ET score when a tie went the
+    // distance so the box/modal reflect the actual result, not the 90' draw.
+    const et = played && Array.isArray(m.score.et) && m.score.et.length === 2 ? m.score.et : null;
     const pens = (m.score && m.score.p) ? m.score.p : null;
+    const finalScore = played ? (et || m.score.ft) : [null, null];
     let winner = null;
-    if(played){ winner = ft[0]>ft[1] ? home : ft[0]<ft[1] ? away : pens ? (pens[0]>pens[1]?home:away) : null; }
+    if(played){ winner = finalScore[0]>finalScore[1] ? home : finalScore[0]<finalScore[1] ? away : pens ? (pens[0]>pens[1]?home:away) : null; }
     knockout.push({
       id, num:m.num, round, feeders,
       hsLabel: home ? (teams[home]?.name||home) : (feeders ? "W"+feeders[0] : (m.team1||"")),
       asLabel: away ? (teams[away]?.name||away) : (feeders ? "W"+feeders[1] : (m.team2||"")),
       homeCode: home, awayCode: away,
       venue: venueOf(m.ground), date: m.date, time: (m.time||"").split(" ")[0],
-      score: ft, ht: played ? (m.score.ht || null) : null, pens, winner, played,
+      score: finalScore, ht: played ? (m.score.ht || null) : null, pens, aet: !!et, winner, played,
       scorers: played ? [...scorers(m.goals1, home), ...scorers(m.goals2, away)].sort((a,b)=>a.min-b.min) : [],
     });
   }
