@@ -52,10 +52,12 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
       <div style="flex:1"></div>
 
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:7px;font:600 11px Barlow;color:#36c98f;white-space:nowrap">
-          <span style="width:7px;height:7px;border-radius:50%;background:#36c98f;display:inline-block;box-shadow:0 0 0 3px rgba(54,201,143,.2)"></span>Live data
-        </div>
-        <div style="font:600 11px Barlow;color:#5d6880;border-left:1px solid rgba(255,255,255,.1);padding-left:16px;white-space:nowrap">{{updatedLabel}}</div>
+        <sc-if value="{{liveShow}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;align-items:center;gap:7px;font:600 11px Barlow;color:#36c98f;white-space:nowrap">
+            <span style="width:7px;height:7px;border-radius:50%;background:#36c98f;display:inline-block;box-shadow:0 0 0 3px rgba(54,201,143,.2)"></span>{{liveLabel}}
+          </div>
+        </sc-if>
+        <div style="font:600 11px Barlow;color:#5d6880;white-space:nowrap;{{updatedSep}}">{{updatedLabel}}</div>
       </div>
     </div>
   </header>
@@ -556,7 +558,7 @@ class Component extends DCLogic {
     el.addEventListener('click',e=>{ if(panned){ e.stopPropagation();e.preventDefault();panned=false; } },true);
   }
   accent(){ return (this.props&&this.props.accent)||'#e3b23c'; }
-  updatedLabel(){ const t=this.D&&this.D.generatedAt; if(!t) return ''; const d=new Date(t); if(isNaN(d)) return ''; return 'Updated '+d.getUTCDate()+' '+this.MON[d.getUTCMonth()]+' '+d.getUTCFullYear(); }
+  updatedLabel(){ const t=this.D&&this.D.generatedAt; if(!t) return ''; const d=new Date(t); if(isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0'); return 'Updated '+d.getUTCDate()+' '+this.MON[d.getUTCMonth()]+', '+p(d.getUTCHours())+':'+p(d.getUTCMinutes())+' UTC'; }
   flag(code){ const t=this.D.teams[code]; const iso=t&&t.iso; return {has:!!iso,url:iso?'https://flagcdn.com/w40/'+iso+'.png':'',big:iso?'https://flagcdn.com/w80/'+iso+'.png':''}; }
   tname(code){ return this.D.teams[code]?this.D.teams[code].name:code; }
   // accept both "A1" and the feed's "1A"; "3rd Place" or "3A/B/C/D/F" third-place combos
@@ -818,6 +820,14 @@ class Component extends DCLogic {
   // wall-clock window a match can still be "in progress": regulation runs ~120 min
   // (90 play + 15 half-time + stoppage); knockout ties can add extra time + penalties.
   liveState(utc,played,isKO){ if(played) return 'FT'; const ms=Date.now()-utc; return (ms>=0&&ms<=(isKO?165:130)*60000)?'LIVE':'SCHEDULED'; }
+  // kickoff instant in UTC ms — the cheap slice of fmt() (no display strings) for hot-path checks
+  kickoffUTC(date,time,ven){ const v=this.D.venues[ven]; const p=date.split('-').map(Number); const tp=time.split(':').map(Number); return Date.UTC(p[0],p[1]-1,p[2],tp[0],tp[1])-v.tz*3600000; }
+  // is any match currently inside its play window? drives the header "Live" badge.
+  anyLive(){
+    if(!this.D) return false;
+    const on=(m,isKO)=>{ if(m.played||!m.date||!m.time) return false; return this.liveState(this.kickoffUTC(m.date,m.time,m.venue),m.played,isKO)==='LIVE'; };
+    return this.D.groupMatches.some(m=>on(m,false)) || this.D.knockout.some(k=>on(k,true));
+  }
   messiWatch(){
     const T=this.featuredCode(), tally={};
     const add=arr=>(arr||[]).forEach(s=>{ if(s.code===T&&!s.og) tally[s.player]=(tally[s.player]||0)+1; });
@@ -909,6 +919,7 @@ class Component extends DCLogic {
   tab(active){ return 'border:none;cursor:pointer;padding:7px 14px;border-radius:8px;font:700 13px Barlow;letter-spacing:.01em;transition:all .12s;'+(active?'background:#e3b23c;color:#1a1407':'background:transparent;color:#9aa4ba'); }
   pill(active){ return 'border:none;cursor:pointer;padding:5px 11px;border-radius:7px;font:600 11px Barlow;transition:all .12s;'+(active?'background:#5cc0f0;color:#06121d':'background:transparent;color:#9aa4ba'); }
   renderVals(){
+    const live=this.anyLive();
     const v={
       wrapRef:el=>{this._wrap=el;this.layout();},
       sizerRef:el=>{this._sizer=el;},
@@ -923,7 +934,9 @@ class Component extends DCLogic {
       isBracket:this.state.view==='bracket', isGroups:this.state.view==='groups', isRoad:this.state.view==='road', isFixtures:this.state.view==='fixtures',
       tabBracket:this.tab(this.state.view==='bracket'), tabGroups:this.tab(this.state.view==='groups'), tabRoad:this.tab(this.state.view==='road'), tabFixtures:this.tab(this.state.view==='fixtures'),
       accent:this.accent(), stageW:this.STAGE_W, stageH:this.STAGE_H,
-      updatedLabel:this.updatedLabel(), groupsSubtitle:'Group standings · tap a team for fixtures & results.',
+      updatedLabel:this.updatedLabel(), liveShow:live, liveLabel:'Live · match in play',
+      updatedSep:live?'border-left:1px solid rgba(255,255,255,.1);padding-left:16px':'',
+      groupsSubtitle:'Group standings · tap a team for fixtures & results.',
       roadTabLabel:'Road', fixturesTabLabel:'Fixtures',
       hasModal:!!this.state.modal, modalIsMatch:false, modalIsTeam:false,
       bracketMobile:false, mobileRoundTabs:[], mobileBoxes:[], mobileRoundTitle:'',
