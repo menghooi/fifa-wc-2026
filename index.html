@@ -982,7 +982,16 @@ class Component extends DCLogic {
 })();
 </script>
 
-<!-- Tournament data -->
-<script src="./project/wcData.js"></script>
+<!-- Tournament data — cache-busted so a plain refresh always pulls the
+     latest build (GitHub Pages caches static assets for 10 min, and iOS
+     Safari reuses them aggressively on reload). The component already
+     polls for window.WC_DATA, so loading this async is fine. -->
+<script>
+(function(){
+  var s=document.createElement('script');
+  s.src='./project/wcData.js?t='+Date.now();
+  document.body.appendChild(s);
+})();
+</script>
 </body>
 </html>
