@@ -12,8 +12,10 @@ name: Deploy site to Pages
 on:
   workflow_dispatch: {}
   schedule:
-    # every 3 hours (UTC). Tighten to "*/30 * * * *" on match days if wanted.
-    - cron: "0 */3 * * *"
+    # hourly (UTC). openfootball's own auto-gen only refreshes every ~3-6h,
+    # so hourly comfortably picks up new results soon after they land; going
+    # faster has diminishing returns. GitHub's scheduler can still drift/skip.
+    - cron: "0 * * * *"
 
 # Required for the Actions-based Pages deployment
 permissions:
