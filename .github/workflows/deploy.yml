@@ -5,11 +5,14 @@ name: Deploy site to Pages
 # Nothing is committed back to the repo, so history stays clean.
 #
 # Triggers:
+#   - push to main so code changes go live immediately
 #   - manual (Actions tab)
 #   - a schedule during the tournament so results and the filling bracket
 #     stay current without anyone pressing a button. Comment the schedule
 #     back out to return to fully manual deploys.
 on:
+  push:
+    branches: [main]
   workflow_dispatch: {}
   schedule:
     # hourly (UTC). openfootball's own auto-gen only refreshes every ~3-6h,
