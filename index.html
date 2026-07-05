@@ -79,10 +79,11 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
         </div>
         <div style="flex:1;min-width:10px"></div>
         <div style="text-align:right;min-width:150px">
-          <div style="font:900 22px Archivo;color:#5cc0f0;line-height:1.1">{{bannerMyt}}</div>
+          <sc-if value="{{bannerLiveShow}}" hint-placeholder-val="{{false}}"><div style="font:900 24px Archivo;color:{{bannerCdColor}};line-height:1.1">{{bannerLiveScore}}</div></sc-if>
+          <sc-if value="{{bannerLiveHide}}" hint-placeholder-val="{{true}}"><div style="font:900 22px Archivo;color:#5cc0f0;line-height:1.1">{{bannerMyt}}</div></sc-if>
           <div style="font:600 11px Barlow;color:#c9d3e6;margin-top:2px">{{bannerMytDate}}</div>
           <div style="font:600 10px Barlow;color:#8793a8;margin-top:1px">{{bannerHost}} · {{bannerNote}}</div>
-          <div style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:20px;background:rgba(92,192,240,.16);border:1px solid rgba(92,192,240,.35);font:700 11px Barlow;color:#9fd8f5">{{bannerCountdown}}</div>
+          <div style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:20px;background:{{bannerCdBg}};border:1px solid {{bannerCdBorder}};font:700 11px Barlow;color:{{bannerCdColor}}">{{bannerCountdown}}</div>
         </div>
       </div>
     </sc-if>
@@ -149,7 +150,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
             <div onClick="{{box.onOpen}}" style="position:absolute;left:{{box.left}}px;top:{{box.top}}px;width:{{box.w}}px;cursor:pointer;border-radius:9px;overflow:hidden;background:#111a2b;border:1px solid {{box.borderColor}};box-shadow:{{box.shadow}};transition:transform .12s,border-color .12s" style-hover="transform:translateY(-2px);border-color:rgba(255,255,255,.34)">
               <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 9px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.05)">
                 <span style="font:700 9px Archivo;letter-spacing:.12em;color:{{box.numColor}}">{{box.numLabel}}</span>
-                <span style="font:600 9px Barlow;color:#5d6880">{{box.dateLabel}}</span>
+                <span style="font:600 9px Barlow;color:{{box.dateColor}}">{{box.dateLabel}}</span>
               </div>
               <dc-import name="Slot" slot="{{box.home}}" hint-size="100%,27px"></dc-import>
               <div style="height:1px;background:rgba(255,255,255,.06)"></div>
@@ -207,7 +208,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
         <div onClick="{{box.onOpen}}" style="margin-bottom:10px;border-radius:11px;overflow:hidden;background:#111a2b;border:1px solid {{box.borderColor}};box-shadow:0 8px 22px rgba(0,0,0,.35);cursor:pointer">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.05)">
             <span style="font:700 10px Archivo;letter-spacing:.12em;color:{{box.numColor}}">{{box.numLabel}}</span>
-            <span style="font:600 10px Barlow;color:#8793a8">{{box.dateLabel}}</span>
+            <span style="font:600 10px Barlow;color:{{box.dateColor}}">{{box.dateLabel}}</span>
           </div>
           <dc-import name="Slot" slot="{{box.home}}" hint-size="100%,34px"></dc-import>
           <div style="height:1px;background:rgba(255,255,255,.06)"></div>
@@ -381,6 +382,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
               </div>
               <div style="text-align:center;flex:none;padding:0 6px">
                 <sc-if value="{{md.played}}" hint-placeholder-val="{{false}}"><div style="font:900 30px Archivo;color:#fff;white-space:nowrap">{{md.scoreLine}}</div></sc-if>
+                <sc-if value="{{md.liveShow}}" hint-placeholder-val="{{false}}"><div style="font:900 30px Archivo;color:{{md.liveScoreColor}};white-space:nowrap">{{md.liveScoreLine}}</div><div style="font:700 9px Archivo;letter-spacing:.1em;color:{{md.liveScoreColor}};margin-top:4px">{{md.liveStatus}}</div></sc-if>
                 <sc-if value="{{md.notPlayed}}" hint-placeholder-val="{{true}}"><div style="font:900 20px Archivo;color:#566079">VS</div></sc-if>
                 <sc-if value="{{md.hasHt}}" hint-placeholder-val="{{false}}"><div style="font:600 9px Barlow;color:#6f7c95;margin-top:3px;white-space:nowrap">{{md.htLine}}</div></sc-if>
                 <sc-if value="{{md.hasPens}}" hint-placeholder-val="{{false}}"><div style="font:600 9px Barlow;color:#8793a8;margin-top:3px;white-space:nowrap">{{md.pens}}</div></sc-if>
@@ -411,7 +413,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
               </div>
             </div>
 
-            <sc-if value="{{md.played}}" hint-placeholder-val="{{false}}">
+            <sc-if value="{{md.showScorers}}" hint-placeholder-val="{{false}}">
               <div style="margin-top:16px">
                 <div style="font:700 10px Archivo;letter-spacing:.14em;color:#5d6880;margin-bottom:8px">GOALSCORERS</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px">
@@ -436,6 +438,23 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
                 <div>
                   <div style="font:700 9px Archivo;letter-spacing:.14em;color:#e3b23c">PENALTY SHOOTOUT</div>
                   <div style="font:700 13px Barlow;color:#efe2c4;margin-top:2px">{{md.shootoutLine}}</div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{md.hasShootoutTakers}}" hint-placeholder-val="{{false}}">
+              <div style="margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:11px 14px">
+                <div style="font:700 9px Archivo;letter-spacing:.14em;color:#5d6880;margin-bottom:8px">{{md.shootoutTakersNote}}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px">
+                  <div>
+                    <sc-for list="{{md.shootoutHome}}" as="pk" hint-placeholder-count="5">
+                      <div style="display:flex;align-items:center;gap:7px;padding:2px 0"><span style="font:800 12px Archivo;color:{{pk.markColor}};width:14px">{{pk.mark}}</span><span style="font:600 12px Barlow;color:#dde4f1">{{pk.player}}</span></div>
+                    </sc-for>
+                  </div>
+                  <div style="text-align:right">
+                    <sc-for list="{{md.shootoutAway}}" as="pk" hint-placeholder-count="5">
+                      <div style="display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:2px 0"><span style="font:600 12px Barlow;color:#dde4f1">{{pk.player}}</span><span style="font:800 12px Archivo;color:{{pk.markColor}};width:14px;text-align:right">{{pk.mark}}</span></div>
+                    </sc-for>
+                  </div>
                 </div>
               </div>
             </sc-if>
@@ -509,16 +528,21 @@ class Component extends DCLogic {
   }
   componentDidMount(){
     if(!this.D){this.D=window.WC_DATA;if(this.D)this.forceUpdate();}
-    if(!this.D){this._iv=setInterval(()=>{if(window.WC_DATA){this.D=window.WC_DATA;clearInterval(this._iv);this.forceUpdate();requestAnimationFrame(()=>this.layout());}},60);}
+    if(!this.D){this._iv=setInterval(()=>{if(window.WC_DATA){this.D=window.WC_DATA;clearInterval(this._iv);this.forceUpdate();this.pollLive();requestAnimationFrame(()=>this.layout());}},60);}
     this._rz=()=>this.layout();
     window.addEventListener('resize',this._rz);
     // keep the "kicks off in …" countdown fresh without a full re-fetch
     // the next-match countdown banner shows on every view, so refresh regardless of view
     this._tick=setInterval(()=>this.forceUpdate(),60000);
+    // true-live overlay: poll ESPN now and every 45s for real scores/minutes/shootouts
+    this.pollLive();
+    this._liveIv=setInterval(()=>this.pollLive(),45000);
+    this._vis=()=>{ if(!document.hidden) this.pollLive(); };   // hidden tabs skip polling; catch up on return
+    document.addEventListener('visibilitychange',this._vis);
     requestAnimationFrame(()=>this.layout());
   }
   componentDidUpdate(){ requestAnimationFrame(()=>this.layout()); }
-  componentWillUnmount(){ clearInterval(this._iv); clearInterval(this._tick); window.removeEventListener('resize',this._rz); }
+  componentWillUnmount(){ clearInterval(this._iv); clearInterval(this._tick); clearInterval(this._liveIv); window.removeEventListener('resize',this._rz); document.removeEventListener('visibilitychange',this._vis); }
   layout(){
     if(!this._wrap) return;
     const narrow=this._wrap.clientWidth<760;
@@ -623,13 +647,15 @@ class Component extends DCLogic {
     const rev=!!(code&&this.D.teams[code]);   // team known -> show flag + name
     const played=!!k.played;
     const winner=played&&k.winner===code, loser=played&&!!k.winner&&k.winner!==code;
+    const ov=this.liveOv(k);
+    const liveSc=ov?(side==='home'?ov.homeScore:ov.awayScore):null;
     const f=this.flag(code);
     return {
       rev, notRev:!rev, winner, loser, hasFlag:rev&&f.has, noFlag:rev&&!f.has, flag:f.url,
-      code, name:this.tname(code), score:played?String(sc):'',
+      code, name:this.tname(code), score:played?String(sc):(ov?String(liveSc):''),
       codeColor:winner?'#fff':(loser?'#73809a':'#cfd8ea'),
       nameColor:winner?'#ffffff':(loser?'#6f7c95':'#dde4f1'),
-      scoreColor:winner?'#36c98f':'#8a94ab', weight:winner?'700':'500',
+      scoreColor:winner?'#36c98f':(ov&&ov.live?'#36c98f':'#8a94ab'), weight:(winner||ov)?'700':'500',
       chip:this.seedChip(seed), chipColor:this.seedColor(seed), sub:this.seedSub(seed)
     };
   }
@@ -638,11 +664,11 @@ class Component extends DCLogic {
     const g=this.geom(), ps=this.pathSet(), boxes=[], ko=this.koMap();
     for(let id=1;id<=30;id++){
       const k=ko[id]; const gm=g[id]; const hi=ps.has(id);
-      const ftimes=this.fmt(k.date,k.time,k.venue);
+      const ftimes=this.fmt(k.date,k.time,k.venue); const ov=this.liveOv(k);
       boxes.push({
         id, left:gm.x, top:gm.top, w:gm.w,
-        numLabel:'MATCH '+id, dateLabel:ftimes.dateShort,
-        borderColor:hi?'#5cc0f0':'rgba(255,255,255,.09)',
+        numLabel:'MATCH '+id, dateLabel:ov?ov.label:ftimes.dateShort, dateColor:ov?ov.color:'#5d6880',
+        borderColor:(ov&&ov.live)?'#36c98f':(hi?'#5cc0f0':'rgba(255,255,255,.09)'),
         shadow:hi?'0 0 0 1px rgba(92,192,240,.5),0 10px 26px rgba(92,192,240,.16)':'0 8px 22px rgba(0,0,0,.35)',
         numColor:hi?'#5cc0f0':'#6f7c95',
         home:this.slot(k,'home'), away:this.slot(k,'away'),
@@ -741,16 +767,25 @@ class Component extends DCLogic {
     const ft=this.fmt(k.date,k.time,k.venue);
     const hf=this.flag(k.homeCode), af=this.flag(k.awayCode);
     const teamsKnown = !isKO || !!(k.homeCode&&k.awayCode&&this.D.teams[k.homeCode]&&this.D.teams[k.awayCode]);
+    // overlay ESPN when our (hourly) data hasn't recorded this match yet — covers a
+    // match in play (green + minute) AND one ESPN has finalised before the next build (FT).
+    const ov=this.liveOv(k);
     const o={
       accent:isKO?(k.round==='F'?'#e3b23c':'#5cc0f0'):'#9b8cff', headBg:isKO?'rgba(92,192,240,.08)':'rgba(155,140,255,.08)',
       roundName:round, numLabel:isKO?(k.round==='F'?'Final':'Match '+k.id):'Matchday '+md,
       dateFull:ft.dateFull, host:ft.host, myt:ft.myt+' MYT', mytNote:ft.mytNote, stadium:ft.stadium, city:ft.city,
-      played, notPlayed:!played, hasPens:played&&!!k.pens, pens:k.pens?('Pens '+k.pens[0]+'–'+k.pens[1]):'',
+      played, notPlayed:!played&&!ov, hasPens:played&&!!k.pens, pens:k.pens?('Pens '+k.pens[0]+'–'+k.pens[1]):'',
       hasHt:played&&!!k.ht, htLine:k.ht?('HT '+k.ht[0]+'–'+k.ht[1]):'',
       scoreLine:k.score[0]+' – '+k.score[1]+(k.aet?' (AET)':''), statusText:'SCHEDULED',
-      hasShootout:false, shootoutLine:''
+      hasShootout:false, shootoutLine:'',
+      liveShow:!!ov, liveScoreLine:ov?(ov.homeScore+' – '+ov.awayScore):'',
+      liveScoreColor:ov&&ov.live?'#36c98f':'#fff', liveStatus:ov?ov.label:'',
+      // ESPN's per-goal details can lag its score — hide the section rather than show
+      // "No goals" under a non-zero scoreline (a 0-0 with no scorers is accurate, keep it)
+      showScorers:played||!!(ov&&(ov.scorers.length||(ov.homeScore===0&&ov.awayScore===0))),
+      hasShootoutTakers:false, shootoutHome:[], shootoutAway:[], shootoutTakersNote:''
     };
-    o.canAddCal=!played;
+    o.canAddCal=!played&&!ov;
     o.onAddCal=()=>this.addToCalendar((o.homeName||'TBD')+' vs '+(o.awayName||'TBD')+' · WC2026 '+round, ft.utc, 120, ft.stadium+', '+ft.city, k.id);
     if(teamsKnown){
       const hw=played&&k.winner===k.homeCode, aw=played&&k.winner===k.awayCode;
@@ -760,13 +795,28 @@ class Component extends DCLogic {
       o.homeHasFlag=false; o.homeNoFlag=true; o.homeChip=this.seedChip(k.hsLabel); o.homeName=k.hsLabel; o.homeSub=this.seedSub(k.hsLabel); o.homeColor='#cfd8ea'; o.homeCursor='';
       o.awayHasFlag=false; o.awayNoFlag=true; o.awayChip=this.seedChip(k.asLabel); o.awayName=k.asLabel; o.awaySub=this.seedSub(k.asLabel); o.awayColor='#cfd8ea'; o.awayCursor='';
     }
-    if(played){
+    // goalscorers — from our data when played, from ESPN live details while in play
+    if(o.showScorers){
       const tag=s=>s.player+(s.pen?' (pen)':'')+(s.og?' (og)':'');
-      const mk=s=>({min:(s.minLabel||String(s.min))+"'",player:tag(s)});
-      const sh=k.scorers.filter(s=>s.code===k.homeCode).map(mk);
-      const sa=k.scorers.filter(s=>s.code===k.awayCode).map(mk);
+      const mk=s=>{ const raw=s.minLabel||String(s.min||''); return {min:raw?(raw.replace(/'+$/,'')+"'"):'',player:tag(s)}; };
+      const src=played?k.scorers:(ov&&ov.scorers||[]);
+      const sh=src.filter(s=>s.code===k.homeCode).map(mk);
+      const sa=src.filter(s=>s.code===k.awayCode).map(mk);
       o.scorersHome=sh; o.scorersAway=sa; o.noHomeScorers=sh.length===0; o.noAwayScorers=sa.length===0;
-      // shootout result (openfootball gives only the aggregate tally, not per-taker)
+    }
+    // penalty-shootout takers — baked from ESPN for finished ties, live during a shootout
+    const takers=(played&&k.shootout&&k.shootout.length)?k.shootout:((ov&&ov.shootout&&ov.shootout.length)?ov.shootout:null);
+    if(takers){
+      const mk=t=>({player:t.player, mark:t.scored?'✓':'✗', markColor:t.scored?'#36c98f':'#c0392b'});
+      o.shootoutHome=takers.filter(t=>t.code===k.homeCode).map(mk);
+      o.shootoutAway=takers.filter(t=>t.code===k.awayCode).map(mk);
+      o.hasShootoutTakers=o.shootoutHome.length>0||o.shootoutAway.length>0;
+      // baked data (from ESPN's summary) has the full sequence incl. misses -> "takers";
+      // an all-scored list only happens mid-shootout via the live poll -> "scorers so far"
+      o.shootoutTakersNote=takers.some(t=>!t.scored)?'Penalty takers':'Penalty scorers';
+    }
+    if(played){
+      // shootout result (openfootball gives the aggregate tally; ESPN adds the takers above)
       o.hasShootout = !!(k.pens && k.winner);
       o.shootoutLine = o.hasShootout ? (this.tname(k.winner)+' won '+Math.max(k.pens[0],k.pens[1])+'–'+Math.min(k.pens[0],k.pens[1])+' on penalties') : '';
       if(o.hasShootout) o.hasPens=false; // shootout box already states the tally; drop the small "Pens 5–4" line
@@ -823,10 +873,67 @@ class Component extends DCLogic {
   // kickoff instant in UTC ms — the cheap slice of fmt() (no display strings) for hot-path checks
   kickoffUTC(date,time,ven){ const v=this.D.venues[ven]; const p=date.split('-').map(Number); const tp=time.split(':').map(Number); return Date.UTC(p[0],p[1]-1,p[2],tp[0],tp[1])-v.tz*3600000; }
   // is any match currently inside its play window? drives the header "Live" badge.
+  // Trust a fresh ESPN snapshot; fall back to the wall-clock window before the first
+  // poll or when polling has gone stale (network loss keeps the last snapshot around).
   anyLive(){
+    if(this._live&&Date.now()-this._liveAt<180000) return this._liveCount>0;
     if(!this.D) return false;
     const on=(m,isKO)=>{ if(m.played||!m.date||!m.time) return false; return this.liveState(this.kickoffUTC(m.date,m.time,m.venue),m.played,isKO)==='LIVE'; };
     return this.D.groupMatches.some(m=>on(m,false)) || this.D.knockout.some(k=>on(k,true));
+  }
+  // ---- true-live overlay (ESPN, unofficial/key-less) --------------------
+  // openfootball (rebuilt hourly) is the base for fixtures/venues/final results;
+  // ESPN layers real-time score, match minute and shootout takers on top while a
+  // match is actually being played. Best-effort: any failure just leaves the base.
+  liveUrl(){ const p=x=>String(x).padStart(2,'0'); const day=off=>{const d=new Date(Date.now()+off*864e5);return d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate());}; return 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates='+day(-1)+'-'+day(1); }
+  // sorted code-pair -> matches; a pairing can occur twice (group meeting + a knockout
+  // rematch), so each key holds every fixture and the poll picks by kickoff time
+  pairIndex(){
+    if(this._pairIdx) return this._pairIdx;
+    const idx={}, add=(m,isKO)=>{ if(m.homeCode&&m.awayCode&&this.D.teams[m.homeCode]&&this.D.teams[m.awayCode]){ const key=[m.homeCode,m.awayCode].sort().join('|'); (idx[key]=idx[key]||[]).push({id:m.id,isKO,homeCode:m.homeCode,awayCode:m.awayCode,ko:this.kickoffUTC(m.date,m.time,m.venue)}); } };
+    this.D.groupMatches.forEach(m=>add(m,false)); this.D.knockout.forEach(k=>add(k,true));
+    this._pairIdx=idx; return idx;
+  }
+  // is any match near/inside its play window? from 10 min before kickoff to ~5h after
+  // (covers AET + pens, and keeps a just-finished overlay fresh until the hourly rebuild)
+  pollWindow(){
+    const now=Date.now(), w=m=>{ if(m.played||!m.date||!m.time) return false; const ko=this.kickoffUTC(m.date,m.time,m.venue); return now>=ko-600000&&now<=ko+18000000; };
+    return this.D.groupMatches.some(w)||this.D.knockout.some(w);
+  }
+  pollLive(){
+    if(!this.D||typeof fetch!=='function') return;
+    if(document.hidden||!this.pollWindow()) return;   // don't hit ESPN when nobody's watching or no match can be in play
+    fetch(this.liveUrl()).then(r=>r.ok?r.json():null).then(j=>{
+      if(!j||!Array.isArray(j.events)) return;
+      const idx=this.pairIndex(), live={}; let count=0;
+      for(const ev of j.events){
+        const c=ev.competitions&&ev.competitions[0]; if(!c||!c.competitors) continue;
+        const st=(ev.status&&ev.status.type)||{}, state=st.state;
+        if(state!=='in'&&state!=='post') continue;               // only overlay live or just-finished
+        const ms=idx[c.competitors.map(t=>t.team.abbreviation).sort().join('|')]; if(!ms) continue;
+        const evT=Date.parse(ev.date)||0;
+        const m=ms.length>1?ms.reduce((a,b)=>Math.abs(a.ko-evT)<=Math.abs(b.ko-evT)?a:b):ms[0];
+        if(state==='in') count++;                                // count only matches we can actually show
+        const codeOf={}, score={}, so={};
+        c.competitors.forEach(t=>{ codeOf[t.team.id]=t.team.abbreviation; score[t.team.abbreviation]=+t.score; if(t.shootoutScore!=null) so[t.team.abbreviation]=+t.shootoutScore; });
+        const scorers=[], shootout=[];
+        (c.details||[]).forEach(d=>{ const code=codeOf[d.team&&d.team.id], who=(d.athletesInvolved&&d.athletesInvolved[0]&&d.athletesInvolved[0].displayName)||''; if(!code||!who) return;
+          if(d.shootout) shootout.push({code,player:who,scored:d.scoreValue===1||/scored/i.test((d.type&&d.type.text)||'')});
+          else if(d.scoringPlay) scorers.push({code,player:who,minLabel:(d.clock&&d.clock.displayValue)||'',og:!!d.ownGoal,pen:!!d.penaltyKick}); });
+        live[m.id]={ live:state==='in', done:state==='post',
+          clock: state==='in'?((ev.status&&ev.status.displayClock)||st.shortDetail||'LIVE'):(st.shortDetail||'FT'),
+          homeScore:score[m.homeCode], awayScore:score[m.awayCode], soHome:so[m.homeCode], soAway:so[m.awayCode],
+          homeCode:m.homeCode, awayCode:m.awayCode, scorers, shootout };
+      }
+      this._live=live; this._liveCount=count; this._liveAt=Date.now(); this.forceUpdate();
+    }).catch(()=>{});
+  }
+  liveOf(m){ return (m&&this._live&&this._live[m.id])||null; }
+  // the ESPN overlay for a match our base data hasn't recorded yet (in play or just
+  // finished), plus the display bits every surface shares; null once the base rules.
+  liveOv(m){
+    const lv=this.liveOf(m); if(!lv||m.played||!(lv.live||lv.done)) return null;
+    return Object.assign({label:lv.live?('● '+(lv.clock||'LIVE')):(lv.clock||'FT'), color:lv.live?'#36c98f':'#8793a8'}, lv);
   }
   messiWatch(){
     const T=this.featuredCode(), tally={};
@@ -848,17 +955,21 @@ class Component extends DCLogic {
       const champ=this.D.champion===T;
       return { bannerNext:false, bannerDoneShow:true, bannerFeatFlag:this.flag(T).url, bannerFeatName:this.tname(T),
         bannerDoneText: champ?('🏆 '+this.tname(T)+' — World Champions 2026'):(this.tname(T)+'’s tournament is complete'),
-        messiShow:!!mw, messiLine };
+        bannerLiveShow:false, messiShow:!!mw, messiLine };
     }
     const m=next.m, ft=next.ft, isHome=m.homeCode===T, oppCode=isHome?m.awayCode:m.homeCode;
     const oppKnown=!!(oppCode&&this.D.teams[oppCode]);
     const round=m.round?({R32:'Round of 32',R16:'Round of 16',QF:'Quarter-final',SF:'Semi-final',F:'Final'})[m.round]:('Group '+m.group+' · Matchday '+m.md);
+    const ov=this.liveOv(m); const liveOn=!!(ov&&ov.live);
     return { bannerNext:true, bannerDoneShow:false, bannerFeatFlag:this.flag(T).url, bannerFeatName:this.tname(T),
       bannerRound:round, bannerVs:isHome?'vs':'@',
       bannerOppName:oppKnown?this.tname(oppCode):(isHome?m.asLabel:m.hsLabel),
       bannerOppFlag:oppKnown?this.flag(oppCode).url:'', bannerOppHasFlag:oppKnown&&this.flag(oppCode).has,
       bannerMyt:ft.myt+' MYT', bannerMytDate:ft.mytDateFull, bannerNote:ft.mytNote,
-      bannerHost:ft.host, bannerVenue:ft.stadium+', '+ft.city, bannerCountdown:this.countdown(ft.utc),
+      bannerHost:ft.host, bannerVenue:ft.stadium+', '+ft.city,
+      bannerCountdown:ov?(liveOn?('● LIVE · '+(ov.clock||'')):(ov.clock||'Full time')):this.countdown(ft.utc),
+      bannerLiveShow:!!ov, bannerLiveHide:!ov, bannerLiveScore:ov?(m.homeCode+' '+ov.homeScore+' – '+ov.awayScore+' '+m.awayCode):'',
+      bannerCdBg:liveOn?'rgba(54,201,143,.16)':(ov?'rgba(255,255,255,.06)':'rgba(92,192,240,.16)'), bannerCdBorder:liveOn?'rgba(54,201,143,.45)':(ov?'rgba(255,255,255,.14)':'rgba(92,192,240,.35)'), bannerCdColor:liveOn?'#36c98f':(ov?'#cdd6e6':'#9fd8f5'),
       bannerOnOpen:()=>this.openMatch(m.id), messiShow:!!mw, messiLine };
   }
   buildRoadHead(){
@@ -870,15 +981,18 @@ class Component extends DCLogic {
     const ft=this.fmt(m.date,m.time,m.venue);
     const hk=!!(m.homeCode&&this.D.teams[m.homeCode]), ak=!!(m.awayCode&&this.D.teams[m.awayCode]);
     const hf=hk?this.flag(m.homeCode):{has:false,url:''}, af=ak?this.flag(m.awayCode):{has:false,url:''};
-    const state=this.liveState(ft.utc,m.played,isKO);
-    const sc=state==='FT'?(m.score[0]+' – '+m.score[1]):(state==='LIVE'?'LIVE':ft.myt);
+    const ov=this.liveOv(m);
+    // priority: our final result > live ESPN score > just-finished ESPN score > scheduled kick-off
+    let mid,midColor,midWeight,stateBadge,stateShow,stateColor;
+    if(m.played){ mid=m.score[0]+' – '+m.score[1]; midColor='#fff'; midWeight='800'; stateBadge='FT'; stateShow=true; stateColor='#8793a8'; }
+    else if(ov&&ov.live){ mid=ov.homeScore+' – '+ov.awayScore; midColor='#36c98f'; midWeight='800'; stateBadge=ov.clock||'LIVE'; stateShow=true; stateColor='#36c98f'; }
+    else if(ov){ mid=ov.homeScore+' – '+ov.awayScore; midColor='#fff'; midWeight='800'; stateBadge='FT'; stateShow=true; stateColor='#8793a8'; }
+    else { mid=ft.myt; midColor='#9aa4ba'; midWeight='600'; stateBadge=''; stateShow=false; stateColor='#8793a8'; }
     const round=isKO?({R32:'R32',R16:'R16',QF:'QF',SF:'SF',F:'FINAL'})[m.round]:('GRP '+m.group);
     return { dateKey:ft.mytDateKey, dateLabel:ft.mytDateFull, utc:ft.utc,
       homeName:hk?this.tname(m.homeCode):this.seedChip(m.hsLabel||''), homeFlag:hf.url, homeHasFlag:hf.has,
       awayName:ak?this.tname(m.awayCode):this.seedChip(m.asLabel||''), awayFlag:af.url, awayHasFlag:af.has,
-      mid:sc, midColor:state==='FT'?'#fff':(state==='LIVE'?'#36c98f':'#9aa4ba'), midWeight:state==='FT'?'800':'600',
-      stateBadge:state==='LIVE'?'LIVE':(state==='FT'?'FT':''), stateShow:state!=='SCHEDULED',
-      stateColor:state==='LIVE'?'#36c98f':'#8793a8', round,
+      mid, midColor, midWeight, stateBadge, stateShow, stateColor, round,
       onOpen:()=>this.openMatch(m.id) };
   }
   buildFixtures(){
@@ -896,9 +1010,10 @@ class Component extends DCLogic {
     const tabs=rounds.map(([k,l])=>({key:k,label:k==='F'?'F':k,active:k===cur,style:this.pill(k===cur),onClick:()=>this.setState({mobileRound:k})}));
     const title=(rounds.find(r=>r[0]===cur)||['',''])[1];
     const boxes=this.D.knockout.filter(k=>k.round===cur).map(k=>{
-      const ft=this.fmt(k.date,k.time,k.venue), hi=ps.has(k.id);
-      return { id:k.id, numLabel:k.round==='F'?'FINAL':('MATCH '+k.id), dateLabel:ft.dateShort+' · '+ft.myt+' MYT',
-        borderColor:hi?'#5cc0f0':'rgba(255,255,255,.09)', numColor:hi?'#5cc0f0':'#6f7c95',
+      const ft=this.fmt(k.date,k.time,k.venue), hi=ps.has(k.id); const ov=this.liveOv(k);
+      return { id:k.id, numLabel:k.round==='F'?'FINAL':('MATCH '+k.id),
+        dateLabel:ov?ov.label:(ft.dateShort+' · '+ft.myt+' MYT'), dateColor:ov?ov.color:'#8793a8',
+        borderColor:(ov&&ov.live)?'#36c98f':(hi?'#5cc0f0':'rgba(255,255,255,.09)'), numColor:hi?'#5cc0f0':'#6f7c95',
         home:this.slot(k,'home'), away:this.slot(k,'away'),
         hasPens:!!k.played&&!!k.pens, pens:k.pens?('Penalties '+k.pens[0]+'–'+k.pens[1]):'',
         onOpen:()=>this.openMatch(k.id) };
@@ -934,7 +1049,7 @@ class Component extends DCLogic {
       isBracket:this.state.view==='bracket', isGroups:this.state.view==='groups', isRoad:this.state.view==='road', isFixtures:this.state.view==='fixtures',
       tabBracket:this.tab(this.state.view==='bracket'), tabGroups:this.tab(this.state.view==='groups'), tabRoad:this.tab(this.state.view==='road'), tabFixtures:this.tab(this.state.view==='fixtures'),
       accent:this.accent(), stageW:this.STAGE_W, stageH:this.STAGE_H,
-      updatedLabel:this.updatedLabel(), liveShow:live, liveLabel:'Live · match in play',
+      updatedLabel:this.updatedLabel(), liveShow:live, liveLabel:(this._liveCount>1?('Live · '+this._liveCount+' matches in play'):'Live · match in play'),
       updatedSep:live?'border-left:1px solid rgba(255,255,255,.1);padding-left:16px':'',
       groupsSubtitle:'Group standings · tap a team for fixtures & results.',
       roadTabLabel:'Road', fixturesTabLabel:'Fixtures',

@@ -6,6 +6,14 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const BASE = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026";
+// ESPN's public (unofficial, key-less) scoreboard — used ONLY to enrich the
+// public-domain openfootball base with the one thing it lacks: penalty-shootout
+// takers. openfootball stays the source of truth for fixtures/scores/scorers.
+// Best-effort: if this fetch fails, the build still produces a complete file.
+const ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719";
+// per-match summary carries the FULL shootout (every kick, incl. misses, in order),
+// which the scoreboard's play list does not — fetched only for ties that went to pens.
+const ESPN_SUMMARY = id => "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=" + id;
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "project", "wcData.js");
 
 // ---- editorial / cosmetic reference data (not in the source feed) -----------
@@ -46,7 +54,59 @@ const minNum = m => parseInt(String(m).split("+")[0].match(/\d+/)?.[0] ?? "0", 1
 const minLabel = m => String(m).replace(/\s+/g,"");
 const isPlayed = m => !!(m.score && Array.isArray(m.score.ft) && m.score.ft.length===2);
 
-function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc){
+// ---- ESPN penalty-shootout takers (best-effort enrichment) ------------------
+// ESPN abbreviations are the same FIFA 3-letter codes openfootball uses, so we
+// key an event by its sorted pair of codes (a pairing is unique in the bracket).
+async function getShootouts(){
+  let events;
+  try{ const r = await fetch(ESPN); if(!r.ok) return {}; events = (await r.json()).events; }
+  catch{ return {}; }
+  // find every tie that went to a shootout; keep its ESPN event id + team-id -> code map
+  const ties = [];
+  for(const ev of events||[]){
+    const c = ev.competitions && ev.competitions[0]; if(!c || !c.competitors) continue;
+    const hasSO = c.competitors.some(t => t.shootoutScore != null) || (c.details||[]).some(d => d.shootout);
+    if(!hasSO) continue;
+    const codeOf = {}; c.competitors.forEach(t => { codeOf[t.team.id] = t.team.abbreviation; });
+    ties.push({ event: ev, id: ev.id, codeOf, pair: c.competitors.map(t => t.team.abbreviation).sort().join("|") });
+  }
+  const byPair = {};
+  await Promise.all(ties.map(async t => {
+    // primary: the summary endpoint has the complete shootout (misses included, in order)
+    let takers = await summaryTakers(t.id, t.codeOf);
+    // fallback: the scoreboard event only lists the SCORED kicks
+    if(!takers) takers = scoreboardTakers(t.event, t.codeOf);
+    if(takers && takers.length) byPair[t.pair] = takers;
+  }));
+  return byPair;
+}
+// full shootout from ESPN's match summary: every kick with taker + scored/missed, in order
+async function summaryTakers(eventId, codeOf){
+  let sum;
+  try{ const r = await fetch(ESPN_SUMMARY(eventId)); if(!r.ok) return null; sum = await r.json(); }
+  catch{ return null; }
+  if(!Array.isArray(sum.shootout) || !sum.shootout.length) return null;
+  const rows = [];
+  for(const team of sum.shootout){
+    const code = codeOf[team.id] || null;
+    for(const s of team.shots || []) rows.push({ code, player: s.player, scored: !!s.didScore, order: s.shotNumber });
+  }
+  rows.sort((a, b) => a.order - b.order);   // interleave both teams into shootout order
+  const out = rows.filter(r => r.code && r.player).map(r => ({ code: r.code, player: r.player, scored: r.scored }));
+  return out.length ? out : null;
+}
+// scored-only fallback: the scoreboard play list (used if a summary fetch fails)
+function scoreboardTakers(ev, codeOf){
+  const c = ev.competitions && ev.competitions[0]; if(!c) return null;
+  const out = (c.details||[]).filter(d => d.shootout).map(d => ({
+    code: codeOf[d.team && d.team.id] || null,
+    player: (d.athletesInvolved && d.athletesInvolved[0] && d.athletesInvolved[0].displayName) || "",
+    scored: d.scoreValue === 1 || /scored/i.test((d.type && d.type.text) || ""),
+  })).filter(t => t.code && t.player);
+  return out.length ? out : null;
+}
+
+function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts){
   // ---- teams -------------------------------------------------------------
   const nameToCode = {}, teams = {};
   for(const t of teamsRaw){
@@ -146,13 +206,15 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc){
     const finalScore = played ? (et || m.score.ft) : [null, null];
     let winner = null;
     if(played){ winner = finalScore[0]>finalScore[1] ? home : finalScore[0]<finalScore[1] ? away : pens ? (pens[0]>pens[1]?home:away) : null; }
+    // penalty-shootout takers from ESPN, keyed by the sorted code pair (only when this tie went to pens)
+    const shootout = (pens && home && away) ? (shootouts[[home,away].sort().join("|")] || null) : null;
     knockout.push({
       id, num:m.num, round, feeders,
       hsLabel: home ? (teams[home]?.name||home) : (feeders ? "W"+feeders[0] : (m.team1||"")),
       asLabel: away ? (teams[away]?.name||away) : (feeders ? "W"+feeders[1] : (m.team2||"")),
       homeCode: home, awayCode: away,
       venue: venueOf(m.ground), date: m.date, time: (m.time||"").split(" ")[0],
-      score: finalScore, ht: played ? (m.score.ht || null) : null, pens, aet: !!et, winner, played,
+      score: finalScore, ht: played ? (m.score.ht || null) : null, pens, shootout, aet: !!et, winner, played,
       scorers: played ? [...scorers(m.goals1, home), ...scorers(m.goals2, away)].sort((a,b)=>a.min-b.min) : [],
     });
   }
@@ -169,12 +231,13 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc){
     featured: FEATURED, featuredPath: pathFor(FEATURED) };
 }
 
-const [teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc] = await Promise.all([
+const [teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts] = await Promise.all([
   getJSON("worldcup.teams.json"), getJSON("worldcup.groups.json"), getJSON("worldcup.stadiums.json"),
-  getJSON("worldcup.squads.json"), getJSON("worldcup.json"),
+  getJSON("worldcup.squads.json"), getJSON("worldcup.json"), getShootouts(),
 ]);
-const data = build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc);
+const data = build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts);
 writeFileSync(OUT, "window.WC_DATA = " + JSON.stringify(data) + ";\n", "utf-8");
 const played = data.groupMatches.filter(m=>m.played).length + data.knockout.filter(k=>k.played).length;
+const withTakers = data.knockout.filter(k=>k.shootout && k.shootout.length).length;
 console.log(`wrote ${OUT}`);
-console.log(`teams=${Object.keys(data.teams).length} groupMatches=${data.groupMatches.length} knockout=${data.knockout.length} played=${played} champion=${data.champion||"(undecided)"}`);
+console.log(`teams=${Object.keys(data.teams).length} groupMatches=${data.groupMatches.length} knockout=${data.knockout.length} played=${played} shootoutTakers=${withTakers} champion=${data.champion||"(undecided)"}`);
