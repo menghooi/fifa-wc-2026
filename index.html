@@ -82,7 +82,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
           <sc-if value="{{bannerLiveShow}}" hint-placeholder-val="{{false}}"><div style="font:900 24px Archivo;color:{{bannerCdColor}};line-height:1.1">{{bannerLiveScore}}</div></sc-if>
           <sc-if value="{{bannerLiveHide}}" hint-placeholder-val="{{true}}"><div style="font:900 22px Archivo;color:#5cc0f0;line-height:1.1">{{bannerMyt}}</div></sc-if>
           <div style="font:600 11px Barlow;color:#c9d3e6;margin-top:2px">{{bannerMytDate}}</div>
-          <div style="font:600 10px Barlow;color:#8793a8;margin-top:1px">{{bannerHost}} · {{bannerNote}}</div>
+          <div style="font:600 10px Barlow;color:#8793a8;margin-top:1px">{{bannerHost}}</div>
           <div style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:20px;background:{{bannerCdBg}};border:1px solid {{bannerCdBorder}};font:700 11px Barlow;color:{{bannerCdColor}}">{{bannerCountdown}}</div>
         </div>
       </div>
@@ -400,7 +400,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
                 <div>
                   <div style="font:700 9px Archivo;letter-spacing:.16em;color:#5cc0f0">🇲🇾 MALAYSIA KICK-OFF (MYT)</div>
                   <div style="font:900 26px Archivo;margin-top:3px;color:#eaf4fb">{{md.myt}}</div>
-                  <div style="font:600 11px Barlow;color:#9fb6c9;margin-top:2px">{{md.mytNote}}</div>
+                  <div style="font:600 11px Barlow;color:#9fb6c9;margin-top:2px">{{md.dateFull}}</div>
                 </div>
                 <sc-if value="{{md.canAddCal}}" hint-placeholder-val="{{true}}">
                   <button onClick="{{md.onAddCal}}" style="border:1px solid rgba(92,192,240,.4);background:rgba(92,192,240,.12);color:#9fd8f5;border-radius:9px;padding:9px 13px;font:700 12px Barlow;cursor:pointer;white-space:nowrap" style-hover="background:rgba(92,192,240,.22)">＋ Add to calendar</button>
@@ -409,6 +409,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
               <div style="margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
                 <span style="font:700 9px Archivo;letter-spacing:.13em;color:#5d6880">VENUE LOCAL</span>
                 <span style="font:700 13px Archivo;color:#cdd6e6">{{md.host}}</span>
+                <sc-if value="{{md.hasHostNote}}" hint-placeholder-val="{{false}}"><span style="font:600 11px Barlow;color:#8793a8">· {{md.hostNote}}</span></sc-if>
                 <span style="font:600 11px Barlow;color:#8793a8">· {{md.stadium}}, {{md.city}}</span>
               </div>
             </div>
@@ -504,7 +505,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
                 </sc-if>
               </div>
             </sc-for>
-            <div style="margin-top:6px;font:600 10px Barlow;color:#5d6880">Home/away local kick-off · tap a fixture for Malaysia time &amp; scorers</div>
+            <div style="margin-top:6px;font:600 10px Barlow;color:#5d6880">All kick-offs in Malaysia time (MYT) · tap a fixture for details &amp; scorers</div>
           </div>
         </sc-if>
 
@@ -599,17 +600,18 @@ class Component extends DCLogic {
   fmt(date,time,ven){
     const v=this.D.venues[ven]; const p=date.split('-').map(Number); const Y=p[0],Mo=p[1],D=p[2]; const tp=time.split(':').map(Number); const H=tp[0],Mi=tp[1];
     const hd=new Date(Date.UTC(Y,Mo-1,D));
-    const dateFull=this.WD[hd.getUTCDay()]+', '+D+' '+this.MON[Mo-1]+' '+Y;
-    const dateShort=this.MON[Mo-1]+' '+D;
+    const hostDateFull=this.WD[hd.getUTCDay()]+', '+D+' '+this.MON[Mo-1]+' '+Y;
+    const hostDateShort=this.MON[Mo-1]+' '+D;
     const host=this.f12(H,Mi)+' '+v.abbr;
     const utc=Date.UTC(Y,Mo-1,D,H,Mi)-v.tz*3600000;
     const m=new Date(utc+8*3600000);
     const myt=this.f12(m.getUTCHours(),m.getUTCMinutes());
     const same=(m.getUTCFullYear()===Y&&m.getUTCMonth()===Mo-1&&m.getUTCDate()===D);
-    const mytNote=same?('Same day · '+dateShort):(this.WD[m.getUTCDay()]+' '+m.getUTCDate()+' '+this.MON[m.getUTCMonth()]+' (next day)');
+    const hostNote=same?'':(this.WD[hd.getUTCDay()]+' '+D+' '+this.MON[Mo-1]+' local date');
+    const mytDateShort=this.MON[m.getUTCMonth()]+' '+m.getUTCDate();
     const mytDateFull=this.WD[m.getUTCDay()]+', '+m.getUTCDate()+' '+this.MON[m.getUTCMonth()]+' '+m.getUTCFullYear();
     const mytDateKey=m.getUTCFullYear()+'-'+String(m.getUTCMonth()+1).padStart(2,'0')+'-'+String(m.getUTCDate()).padStart(2,'0');
-    return {dateFull,dateShort,host,myt,mytNote,mytDateFull,mytDateKey,utc,city:v.city,stadium:v.stadium};
+    return {hostDateFull,hostDateShort,host,hostNote,myt,mytDateShort,mytDateFull,mytDateKey,utc,city:v.city,stadium:v.stadium};
   }
   // relative "in 3d 4h" / "in 25 min" / "kicking off" from now to a kickoff (UTC ms)
   countdown(utc){
@@ -667,7 +669,7 @@ class Component extends DCLogic {
       const ftimes=this.fmt(k.date,k.time,k.venue); const ov=this.liveOv(k);
       boxes.push({
         id, left:gm.x, top:gm.top, w:gm.w,
-        numLabel:'MATCH '+id, dateLabel:ov?ov.label:ftimes.dateShort, dateColor:ov?ov.color:'#5d6880',
+        numLabel:'MATCH '+id, dateLabel:ov?ov.label:ftimes.mytDateShort, dateColor:ov?ov.color:'#5d6880',
         borderColor:(ov&&ov.live)?'#36c98f':(hi?'#5cc0f0':'rgba(255,255,255,.09)'),
         shadow:hi?'0 0 0 1px rgba(92,192,240,.5),0 10px 26px rgba(92,192,240,.16)':'0 8px 22px rgba(0,0,0,.35)',
         numColor:hi?'#5cc0f0':'#6f7c95',
@@ -729,10 +731,10 @@ class Component extends DCLogic {
       const isHome=m.homeCode===T; const opp=isHome?m.awayCode:m.homeCode;
       const played=!!m.played; const af=isHome?m.score[0]:m.score[1], of=isHome?m.score[1]:m.score[0];
       const f=this.flag(opp); const ft=this.fmt(m.date,m.time,m.venue); const rm=this.resultMeta((af||0)-(of||0));
-      cards.push({stage:'GROUP '+fg+' · MD'+m.md, stageColor:'#56b6e8', dateLabel:ft.dateShort, locLabel:isHome?(T+' vs'):(T+' @'),
+      cards.push({stage:'GROUP '+fg+' · MD'+m.md, stageColor:'#56b6e8', dateLabel:ft.mytDateShort, locLabel:isHome?(T+' vs'):(T+' @'),
         oppName:this.tname(opp), oppFlag:f.has, oppNoFlag:!f.has, oppFlagUrl:f.url,
         played, notPlayed:!played, scoreLine:played?(af+' – '+of):'', result:played?rm.result:'', resFg:rm.resFg, resBg:rm.resBg,
-        kickoff:ft.host+' / '+ft.myt+' MYT', hasPens:false,
+        kickoff:ft.myt+' MYT · '+ft.host+' local', hasPens:false,
         dotBg:'#56b6e8', dotBorder:'#0e1626', lineColor:'#26304a', cardBorder:'rgba(255,255,255,.07)',
         onOpen:()=>this.openMatch(m.id)});
     });
@@ -743,17 +745,17 @@ class Component extends DCLogic {
       const ft=this.fmt(k.date,k.time,k.venue); const known=!!(opp&&this.D.teams[opp]);
       const af=isHome?k.score[0]:k.score[1], of=isHome?k.score[1]:k.score[0]; const rm=this.resultMeta((af||0)-(of||0));
       if(k.played){ const f=this.flag(opp);
-        cards.push({stage:stageName[k.round], stageColor:'#e3b23c', dateLabel:ft.dateShort, locLabel:T+(isHome?' vs':' @'),
+        cards.push({stage:stageName[k.round], stageColor:'#e3b23c', dateLabel:ft.mytDateShort, locLabel:T+(isHome?' vs':' @'),
           oppName:this.tname(opp), oppFlag:f.has, oppNoFlag:!f.has, oppFlagUrl:f.url,
           played:true, notPlayed:false, scoreLine:af+' – '+of, result:rm.result, resFg:rm.resFg, resBg:rm.resBg,
           kickoff:'', hasPens:!!k.pens, pens:k.pens?('Penalties '+k.pens[0]+'–'+k.pens[1]):'',
           dotBg:'#e3b23c', dotBorder:'#0e1626', lineColor:'#3a3320', cardBorder:'rgba(227,178,60,.3)',
           onOpen:()=>this.openMatch(id)});
       } else { const f=this.flag(opp);
-        cards.push({stage:stageName[k.round], stageColor:'#8793a8', dateLabel:ft.dateShort, locLabel:T+' vs',
+        cards.push({stage:stageName[k.round], stageColor:'#8793a8', dateLabel:ft.mytDateShort, locLabel:T+' vs',
           oppName:known?this.tname(opp):'TBD', oppFlag:known&&f.has, oppNoFlag:!(known&&f.has), oppFlagUrl:f.url,
           played:false, notPlayed:true, scoreLine:'', result:'', resFg:'', resBg:'',
-          kickoff:ft.host+' / '+ft.myt+' MYT', hasPens:false,
+          kickoff:ft.myt+' MYT · '+ft.host+' local', hasPens:false,
           dotBg:'#1a2336', dotBorder:'#0e1626', lineColor:'#26304a', cardBorder:'rgba(255,255,255,.07)',
           onOpen:()=>this.openMatch(id)});
       }
@@ -773,7 +775,7 @@ class Component extends DCLogic {
     const o={
       accent:isKO?(k.round==='F'?'#e3b23c':'#5cc0f0'):'#9b8cff', headBg:isKO?'rgba(92,192,240,.08)':'rgba(155,140,255,.08)',
       roundName:round, numLabel:isKO?(k.round==='F'?'Final':'Match '+k.id):'Matchday '+md,
-      dateFull:ft.dateFull, host:ft.host, myt:ft.myt+' MYT', mytNote:ft.mytNote, stadium:ft.stadium, city:ft.city,
+      dateFull:ft.mytDateFull, host:ft.host, hostNote:ft.hostNote, hasHostNote:!!ft.hostNote, myt:ft.myt+' MYT', stadium:ft.stadium, city:ft.city,
       played, notPlayed:!played&&!ov, hasPens:played&&!!k.pens, pens:k.pens?('Pens '+k.pens[0]+'–'+k.pens[1]):'',
       hasHt:played&&!!k.ht, htLine:k.ht?('HT '+k.ht[0]+'–'+k.ht[1]):'',
       scoreLine:k.score[0]+' – '+k.score[1]+(k.aet?' (AET)':''), statusText:'SCHEDULED',
@@ -844,8 +846,8 @@ class Component extends DCLogic {
     gms.forEach(m=>{
       const isHome=m.homeCode===code, opp=isHome?m.awayCode:m.homeCode; const played=!!m.played;
       const tf=isHome?m.score[0]:m.score[1], of=isHome?m.score[1]:m.score[0]; const ff=this.flag(opp); const ft=this.fmt(m.date,m.time,m.venue); const rm=this.resultMeta((tf||0)-(of||0));
-      o.fixtures.push({stage:'Matchday '+m.md, stageColor:'#56b6e8', dateShort:ft.dateShort, loc:isHome?'vs':'@', hasFlag:ff.has, noFlag:!ff.has, oppFlag:ff.url, oppName:this.tname(opp),
-        played, notPlayed:!played, scoreLine:played?(tf+' – '+of):'', result:played?rm.result:'', resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.host, onOpen:()=>this.openMatch(m.id)});
+      o.fixtures.push({stage:'Matchday '+m.md, stageColor:'#56b6e8', dateShort:ft.mytDateShort, loc:isHome?'vs':'@', hasFlag:ff.has, noFlag:!ff.has, oppFlag:ff.url, oppName:this.tname(opp),
+        played, notPlayed:!played, scoreLine:played?(tf+' – '+of):'', result:played?rm.result:'', resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.myt+' MYT', onOpen:()=>this.openMatch(m.id)});
     });
     {
       const sn={R32:'Round of 32',R16:'Round of 16',QF:'Quarter-final',SF:'Semi-final',F:'Final'};
@@ -855,8 +857,8 @@ class Component extends DCLogic {
         const tf=isHome?k.score[0]:k.score[1], of=isHome?k.score[1]:k.score[0];
         const ff=this.flag(opp); const ft=this.fmt(k.date,k.time,k.venue); let rm=this.resultMeta((tf||0)-(of||0));
         if(played&&tf===of&&k.pens){ const wonPens=k.winner===code; rm={result:wonPens?'W':'L',resFg:'#fff',resBg:wonPens?'#1f8a5b':'#c0392b'}; }
-        o.fixtures.push({stage:sn[k.round], stageColor:'#e3b23c', dateShort:ft.dateShort, loc:isHome?'vs':'@', hasFlag:ff.has, noFlag:!ff.has, oppFlag:ff.url, oppName:opp?this.tname(opp):'TBD',
-          played, notPlayed:!played, scoreLine:played?(tf+' – '+of+(k.pens?' (p)':'')):'', result:played?rm.result:'', resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.host, onOpen:()=>this.openMatch(k.id)});
+        o.fixtures.push({stage:sn[k.round], stageColor:'#e3b23c', dateShort:ft.mytDateShort, loc:isHome?'vs':'@', hasFlag:ff.has, noFlag:!ff.has, oppFlag:ff.url, oppName:opp?this.tname(opp):'TBD',
+          played, notPlayed:!played, scoreLine:played?(tf+' – '+of+(k.pens?' (p)':'')):'', result:played?rm.result:'', resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.myt+' MYT', onOpen:()=>this.openMatch(k.id)});
       });
       if(kos.length) o.fixturesLabel='ALL FIXTURES · GROUP TO KNOCKOUT';
     }
@@ -965,8 +967,8 @@ class Component extends DCLogic {
       bannerRound:round, bannerVs:isHome?'vs':'@',
       bannerOppName:oppKnown?this.tname(oppCode):(isHome?m.asLabel:m.hsLabel),
       bannerOppFlag:oppKnown?this.flag(oppCode).url:'', bannerOppHasFlag:oppKnown&&this.flag(oppCode).has,
-      bannerMyt:ft.myt+' MYT', bannerMytDate:ft.mytDateFull, bannerNote:ft.mytNote,
-      bannerHost:ft.host, bannerVenue:ft.stadium+', '+ft.city,
+      bannerMyt:ft.myt+' MYT', bannerMytDate:ft.mytDateFull,
+      bannerHost:ft.host+(ft.hostNote?' · '+ft.hostNote:' local'), bannerVenue:ft.stadium+', '+ft.city,
       bannerCountdown:ov?(liveOn?('● LIVE · '+(ov.clock||'')):(ov.clock||'Full time')):this.countdown(ft.utc),
       bannerLiveShow:!!ov, bannerLiveHide:!ov, bannerLiveScore:ov?(m.homeCode+' '+ov.homeScore+' – '+ov.awayScore+' '+m.awayCode):'',
       bannerCdBg:liveOn?'rgba(54,201,143,.16)':(ov?'rgba(255,255,255,.06)':'rgba(92,192,240,.16)'), bannerCdBorder:liveOn?'rgba(54,201,143,.45)':(ov?'rgba(255,255,255,.14)':'rgba(92,192,240,.35)'), bannerCdColor:liveOn?'#36c98f':(ov?'#cdd6e6':'#9fd8f5'),
@@ -1012,7 +1014,7 @@ class Component extends DCLogic {
     const boxes=this.D.knockout.filter(k=>k.round===cur).map(k=>{
       const ft=this.fmt(k.date,k.time,k.venue), hi=ps.has(k.id); const ov=this.liveOv(k);
       return { id:k.id, numLabel:k.round==='F'?'FINAL':('MATCH '+k.id),
-        dateLabel:ov?ov.label:(ft.dateShort+' · '+ft.myt+' MYT'), dateColor:ov?ov.color:'#8793a8',
+        dateLabel:ov?ov.label:(ft.mytDateShort+' · '+ft.myt+' MYT'), dateColor:ov?ov.color:'#8793a8',
         borderColor:(ov&&ov.live)?'#36c98f':(hi?'#5cc0f0':'rgba(255,255,255,.09)'), numColor:hi?'#5cc0f0':'#6f7c95',
         home:this.slot(k,'home'), away:this.slot(k,'away'),
         hasPens:!!k.played&&!!k.pens, pens:k.pens?('Penalties '+k.pens[0]+'–'+k.pens[1]):'',
