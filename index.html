@@ -594,8 +594,8 @@ class Component extends DCLogic {
   }
   isThird(label){ return label==='3rd Place'||/^3[A-L](\/[A-L])+$/.test(label||'')||/^([A-L])3$|^3([A-L])$/.test(label||''); }
   seedChip(label){ const s=this.seedParse(label); if(s) return s.grp+s.pos; if(this.isThird(label)) return '3rd'; return label; }
-  seedColor(label){ const s=this.seedParse(label); if(s) return this.D.groupColors[s.grp]; if(label&&label[0]==='W') return '#33405c'; return '#566079'; }
-  seedSub(label){ const s=this.seedParse(label); if(s) return 'Group '+s.grp+' · '+(s.pos===1?'Winner':s.pos===2?'Runner-up':'3rd'); if(this.isThird(label)) return 'Best 3rd place'; const m=/^W(\d+)$/.exec(label); if(m) return 'Winner Match '+m[1]; return ''; }
+  seedColor(label){ const s=this.seedParse(label); if(s) return this.D.groupColors[s.grp]; if(label&&(label[0]==='W'||label[0]==='L')) return '#33405c'; return '#566079'; }
+  seedSub(label){ const s=this.seedParse(label); if(s) return 'Group '+s.grp+' · '+(s.pos===1?'Winner':s.pos===2?'Runner-up':'3rd'); if(this.isThird(label)) return 'Best 3rd place'; let m=/^W(\d+)$/.exec(label); if(m) return 'Winner Match '+m[1]; m=/^L(\d+)$/.exec(label); if(m) return 'Loser Match '+m[1]; return ''; }
   f12(H,Mi){ let h=((H+11)%12)+1; return h+':'+String(Mi).padStart(2,'0')+' '+(H<12?'AM':'PM'); }
   fmt(date,time,ven){
     const v=this.D.venues[ven]; const p=date.split('-').map(Number); const Y=p[0],Mo=p[1],D=p[2]; const tp=time.split(':').map(Number); const H=tp[0],Mi=tp[1];
@@ -639,7 +639,10 @@ class Component extends DCLogic {
     const W=id=>id===31?188:158, Hh=id=>id===31?104:72;
     const cy=id=>{ const f=ko[id].feeders; return f?(cy(f[0])+cy(f[1]))/2 : top+ch/2+row[id]*step; };
     const g={};
-    this.D.knockout.forEach(k=>{ const id=k.id; const c=cy(id); g[id]={x:X(id),cy:c,w:W(id),h:Hh(id),top:c-Hh(id)/2}; });
+    this.D.knockout.forEach(k=>{ if(k.round==='TP') return; const id=k.id; const c=cy(id); g[id]={x:X(id),cy:c,w:W(id),h:Hh(id),top:c-Hh(id)/2}; });
+    // third-place play-off: no feeder lines; a lone box centred under the final
+    const tp=this.D.knockout.find(k=>k.round==='TP');
+    if(tp&&g[31]){ const f=g[31], w=158, h=72, t=f.top+194; g[tp.id]={x:f.x+(f.w-w)/2,cy:t+h/2,w,h,top:t}; }
     this._geom=g; return g;
   }
   slot(k,side){
@@ -663,13 +666,14 @@ class Component extends DCLogic {
   }
   groupOf(code){ const gd=this.D.groupDef; return Object.keys(gd).find(g=>gd[g].includes(code)); }
   buildBoxes(){
-    const g=this.geom(), ps=this.pathSet(), boxes=[], ko=this.koMap();
-    for(let id=1;id<=30;id++){
-      const k=ko[id]; const gm=g[id]; const hi=ps.has(id);
+    const g=this.geom(), ps=this.pathSet(), boxes=[];
+    this.D.knockout.forEach(k=>{
+      if(k.round==='F') return;              // the final gets its own showcase box
+      const id=k.id; const gm=g[id]; const hi=ps.has(id);
       const ftimes=this.fmt(k.date,k.time,k.venue); const ov=this.liveOv(k);
       boxes.push({
         id, left:gm.x, top:gm.top, w:gm.w,
-        numLabel:'MATCH '+id, dateLabel:ov?ov.label:ftimes.mytDateShort, dateColor:ov?ov.color:'#5d6880',
+        numLabel:k.round==='TP'?'THIRD PLACE':'MATCH '+id, dateLabel:ov?ov.label:ftimes.mytDateShort, dateColor:ov?ov.color:'#5d6880',
         borderColor:(ov&&ov.live)?'#36c98f':(hi?'#5cc0f0':'rgba(255,255,255,.09)'),
         shadow:hi?'0 0 0 1px rgba(92,192,240,.5),0 10px 26px rgba(92,192,240,.16)':'0 8px 22px rgba(0,0,0,.35)',
         numColor:hi?'#5cc0f0':'#6f7c95',
@@ -677,7 +681,7 @@ class Component extends DCLogic {
         hasPens:!!k.played&&!!k.pens, pens:k.pens?('Penalties '+k.pens[0]+'–'+k.pens[1]):'',
         onOpen:()=>this.openMatch(id)
       });
-    }
+    });
     return boxes;
   }
   buildConnectors(){
@@ -738,7 +742,7 @@ class Component extends DCLogic {
         dotBg:'#56b6e8', dotBorder:'#0e1626', lineColor:'#26304a', cardBorder:'rgba(255,255,255,.07)',
         onOpen:()=>this.openMatch(m.id)});
     });
-    const stageName={R32:'ROUND OF 32',R16:'ROUND OF 16',QF:'QUARTER-FINAL',SF:'SEMI-FINAL',F:'FINAL'};
+    const stageName={R32:'ROUND OF 32',R16:'ROUND OF 16',QF:'QUARTER-FINAL',SF:'SEMI-FINAL',TP:'THIRD PLACE',F:'FINAL'};
     const path=this.D.knockout.filter(k=>k.homeCode===T||k.awayCode===T).map(k=>k.id);
     path.forEach(id=>{
       const k=ko[id]; const isHome=k.homeCode===T; const opp=isHome?k.awayCode:k.homeCode;
@@ -764,7 +768,7 @@ class Component extends DCLogic {
   }
   buildMatchModal(mid){
     let k, isKO, round, group, md, played;
-    if(typeof mid==='number'){ k=this.koMap()[mid]; isKO=true; const rn={R32:'ROUND OF 32',R16:'ROUND OF 16',QF:'QUARTER-FINAL',SF:'SEMI-FINAL',F:'FINAL'}; round=rn[k.round]; played=!!k.played; }
+    if(typeof mid==='number'){ k=this.koMap()[mid]; isKO=true; const rn={R32:'ROUND OF 32',R16:'ROUND OF 16',QF:'QUARTER-FINAL',SF:'SEMI-FINAL',TP:'THIRD-PLACE PLAY-OFF',F:'FINAL'}; round=rn[k.round]; played=!!k.played; }
     else { k=this.D.groupMatches.find(m=>m.id===mid); isKO=false; group=k.group; md=k.md; round='GROUP '+group; played=!!k.played; }
     const ft=this.fmt(k.date,k.time,k.venue);
     const hf=this.flag(k.homeCode), af=this.flag(k.awayCode);
@@ -774,7 +778,7 @@ class Component extends DCLogic {
     const ov=this.liveOv(k);
     const o={
       accent:isKO?(k.round==='F'?'#e3b23c':'#5cc0f0'):'#9b8cff', headBg:isKO?'rgba(92,192,240,.08)':'rgba(155,140,255,.08)',
-      roundName:round, numLabel:isKO?(k.round==='F'?'Final':'Match '+k.id):'Matchday '+md,
+      roundName:round, numLabel:isKO?(k.round==='F'?'Final':k.round==='TP'?'Third place':'Match '+k.id):'Matchday '+md,
       dateFull:ft.mytDateFull, host:ft.host, hostNote:ft.hostNote, hasHostNote:!!ft.hostNote, myt:ft.myt+' MYT', stadium:ft.stadium, city:ft.city,
       played, notPlayed:!played&&!ov, hasPens:played&&!!k.pens, pens:k.pens?('Pens '+k.pens[0]+'–'+k.pens[1]):'',
       hasHt:played&&!!k.ht, htLine:k.ht?('HT '+k.ht[0]+'–'+k.ht[1]):'',
@@ -834,7 +838,7 @@ class Component extends DCLogic {
     }
     return o;
   }
-  seedPhrase(label){ const s=this.seedParse(label); if(s) return 'Group '+s.grp+' '+(s.pos===1?'winner':s.pos===2?'runner-up':'third-placed team'); if(this.isThird(label)) return 'best third-placed team'; const m=/^W(\d+)$/.exec(label); if(m) return 'winner of Match '+m[1]; return 'qualifier'; }
+  seedPhrase(label){ const s=this.seedParse(label); if(s) return 'Group '+s.grp+' '+(s.pos===1?'winner':s.pos===2?'runner-up':'third-placed team'); if(this.isThird(label)) return 'best third-placed team'; let m=/^W(\d+)$/.exec(label); if(m) return 'winner of Match '+m[1]; m=/^L(\d+)$/.exec(label); if(m) return 'loser of Match '+m[1]; return 'qualifier'; }
   projSeed(label){ const s=this.seedParse(label); if(s&&s.pos<=2&&this.D.standings[s.grp]) return this.tname(this.D.standings[s.grp][s.pos-1].code); if(this.isThird(label)) return 'a best 3rd-placed team'; return null; }
   buildTeamModal(code){
     const g=this.groupOf(code), color=this.D.groupColors[g], f=this.flag(code);
@@ -850,7 +854,7 @@ class Component extends DCLogic {
         played, notPlayed:!played, scoreLine:played?(tf+' – '+of):'', result:played?rm.result:'', resFg:rm.resFg, resBg:rm.resBg, kickoff:ft.myt+' MYT', onOpen:()=>this.openMatch(m.id)});
     });
     {
-      const sn={R32:'Round of 32',R16:'Round of 16',QF:'Quarter-final',SF:'Semi-final',F:'Final'};
+      const sn={R32:'Round of 32',R16:'Round of 16',QF:'Quarter-final',SF:'Semi-final',TP:'Third place',F:'Final'};
       const kos=this.D.knockout.filter(k=>k.homeCode===code||k.awayCode===code);
       kos.forEach(k=>{
         const isHome=k.homeCode===code, opp=isHome?k.awayCode:k.homeCode; const played=!!k.played;
@@ -961,7 +965,7 @@ class Component extends DCLogic {
     }
     const m=next.m, ft=next.ft, isHome=m.homeCode===T, oppCode=isHome?m.awayCode:m.homeCode;
     const oppKnown=!!(oppCode&&this.D.teams[oppCode]);
-    const round=m.round?({R32:'Round of 32',R16:'Round of 16',QF:'Quarter-final',SF:'Semi-final',F:'Final'})[m.round]:('Group '+m.group+' · Matchday '+m.md);
+    const round=m.round?({R32:'Round of 32',R16:'Round of 16',QF:'Quarter-final',SF:'Semi-final',TP:'Third-place play-off',F:'Final'})[m.round]:('Group '+m.group+' · Matchday '+m.md);
     const ov=this.liveOv(m); const liveOn=!!(ov&&ov.live);
     return { bannerNext:true, bannerDoneShow:false, bannerFeatFlag:this.flag(T).url, bannerFeatName:this.tname(T),
       bannerRound:round, bannerVs:isHome?'vs':'@',
@@ -990,7 +994,7 @@ class Component extends DCLogic {
     else if(ov&&ov.live){ mid=ov.homeScore+' – '+ov.awayScore; midColor='#36c98f'; midWeight='800'; stateBadge=ov.clock||'LIVE'; stateShow=true; stateColor='#36c98f'; }
     else if(ov){ mid=ov.homeScore+' – '+ov.awayScore; midColor='#fff'; midWeight='800'; stateBadge='FT'; stateShow=true; stateColor='#8793a8'; }
     else { mid=ft.myt; midColor='#9aa4ba'; midWeight='600'; stateBadge=''; stateShow=false; stateColor='#8793a8'; }
-    const round=isKO?({R32:'R32',R16:'R16',QF:'QF',SF:'SF',F:'FINAL'})[m.round]:('GRP '+m.group);
+    const round=isKO?({R32:'R32',R16:'R16',QF:'QF',SF:'SF',TP:'3RD',F:'FINAL'})[m.round]:('GRP '+m.group);
     return { dateKey:ft.mytDateKey, dateLabel:ft.mytDateFull, utc:ft.utc,
       homeName:hk?this.tname(m.homeCode):this.seedChip(m.hsLabel||''), homeFlag:hf.url, homeHasFlag:hf.has,
       awayName:ak?this.tname(m.awayCode):this.seedChip(m.asLabel||''), awayFlag:af.url, awayHasFlag:af.has,
@@ -1011,9 +1015,11 @@ class Component extends DCLogic {
     const cur=this.state.mobileRound, ps=this.pathSet();
     const tabs=rounds.map(([k,l])=>({key:k,label:k==='F'?'F':k,active:k===cur,style:this.pill(k===cur),onClick:()=>this.setState({mobileRound:k})}));
     const title=(rounds.find(r=>r[0]===cur)||['',''])[1];
-    const boxes=this.D.knockout.filter(k=>k.round===cur).map(k=>{
+    // the third-place play-off lives in the Final tab (played the day before, no tab of its own)
+    const boxes=this.D.knockout.filter(k=>k.round===cur||(cur==='F'&&k.round==='TP'))
+      .sort((a,b)=>(a.date+a.time<b.date+b.time?-1:1)).map(k=>{
       const ft=this.fmt(k.date,k.time,k.venue), hi=ps.has(k.id); const ov=this.liveOv(k);
-      return { id:k.id, numLabel:k.round==='F'?'FINAL':('MATCH '+k.id),
+      return { id:k.id, numLabel:k.round==='F'?'FINAL':k.round==='TP'?'THIRD PLACE':('MATCH '+k.id),
         dateLabel:ov?ov.label:(ft.mytDateShort+' · '+ft.myt+' MYT'), dateColor:ov?ov.color:'#8793a8',
         borderColor:(ov&&ov.live)?'#36c98f':(hi?'#5cc0f0':'rgba(255,255,255,.09)'), numColor:hi?'#5cc0f0':'#6f7c95',
         home:this.slot(k,'home'), away:this.slot(k,'away'),

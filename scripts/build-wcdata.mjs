@@ -28,7 +28,7 @@ const ABBR = { "-7":"PDT", "-6":"CST", "-5":"CDT", "-4":"EDT" };
 const FEATURED = "ARG"; // "[X]'s Road" highlight path; editorial, decide later
 
 const KO_ROUND = { "Round of 32":"R32", "Round of 16":"R16", "Quarter-final":"QF",
-  "Semi-final":"SF", "Final":"F" };
+  "Semi-final":"SF", "Match for third place":"TP", "Final":"F" };
 
 // Static feeder tree (openfootball match numbers). The bracket structure never
 // changes during the tournament, but the feed REPLACES a "W73" slot with the
@@ -186,16 +186,17 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts){
 
   // ---- knockout (real feeder tree from "W<num>" labels) ------------------
   const koSrc = wc.matches.filter(m => KO_ROUND[m.round]);
-  // 73..102 -> 1..30, Final(104) -> 31, third-place play-off(103) -> skipped
-  const idOf = num => num === 104 ? 31 : num === 103 ? null : num - 72;
+  // 73..102 -> 1..30, Final(104) -> 31, third-place play-off(103) -> 32
+  const idOf = num => num === 104 ? 31 : num === 103 ? 32 : num - 72;
   // feeders in bracket-id space (1..31), from the static structure above
   const feedersOf = num => { const f = FEEDERS_NUM[num]; return f ? [idOf(f[0]), idOf(f[1])] : null; };
+  // the feed's "L101"/"L102" (semi-final losers -> third place) remapped to bracket ids
+  const slotLabel = raw => { const l = /^L(\d+)$/.exec(raw || ""); return l ? "L" + idOf(+l[1]) : (raw || ""); };
   const knockout = [];
   for(const m of koSrc){
     const id = idOf(m.num);
-    if(id === null) continue;                     // skip the third-place play-off (no slot in this bracket)
     const round = KO_ROUND[m.round];
-    const feeders = feedersOf(m.num);             // [homeFeederId, awayFeederId] or null (R32)
+    const feeders = feedersOf(m.num);             // [homeFeederId, awayFeederId] or null (R32, third place)
     const home = code(m.team1), away = code(m.team2);  // null while a slot is still "W##"/"L##"
     const played = isPlayed(m);
     // openfootball keeps ft = score after 90', et = aggregate after extra time,
@@ -210,8 +211,8 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts){
     const shootout = (pens && home && away) ? (shootouts[[home,away].sort().join("|")] || null) : null;
     knockout.push({
       id, num:m.num, round, feeders,
-      hsLabel: home ? (teams[home]?.name||home) : (feeders ? "W"+feeders[0] : (m.team1||"")),
-      asLabel: away ? (teams[away]?.name||away) : (feeders ? "W"+feeders[1] : (m.team2||"")),
+      hsLabel: home ? (teams[home]?.name||home) : (feeders ? "W"+feeders[0] : slotLabel(m.team1)),
+      asLabel: away ? (teams[away]?.name||away) : (feeders ? "W"+feeders[1] : slotLabel(m.team2)),
       homeCode: home, awayCode: away,
       venue: venueOf(m.ground), date: m.date, time: (m.time||"").split(" ")[0],
       score: finalScore, ht: played ? (m.score.ht || null) : null, pens, shootout, aet: !!et, winner, played,
