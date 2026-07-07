@@ -15,10 +15,12 @@ on:
     branches: [main]
   workflow_dispatch: {}
   schedule:
-    # hourly (UTC). openfootball's own auto-gen only refreshes every ~3-6h,
-    # so hourly comfortably picks up new results soon after they land; going
-    # faster has diminishing returns. GitHub's scheduler can still drift/skip.
-    - cron: "0 * * * *"
+    # twice hourly at off-peak minutes (UTC). :00 is GitHub's most congested
+    # slot and schedules there drift or skip the most; an arbitrary minute
+    # drifts far less, and two ticks an hour halves the staleness cost of a
+    # skipped run. openfootball's own auto-gen only refreshes every ~3-6h,
+    # so anything faster has diminishing returns.
+    - cron: "7,37 * * * *"
 
 # Required for the Actions-based Pages deployment
 permissions:
