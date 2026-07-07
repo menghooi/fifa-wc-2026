@@ -222,6 +222,29 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts){
   knockout.sort((a,b)=>a.id-b.id);
   const koById = {}; knockout.forEach(k => koById[k.id] = k);
 
+  // Propagate decided results into still-unresolved slots. The feed only fills
+  // a "W23"/"L29" slot on its own ~3-6h auto-gen cycle, so between a tie ending
+  // and the next feed refresh the winner has no next match in the data (which
+  // read as "tournament is complete"). Ascending id order cascades round by
+  // round; a code already set by the feed is left untouched.
+  const loserOf = k => (k && k.played && k.winner && k.homeCode && k.awayCode)
+    ? (k.winner === k.homeCode ? k.awayCode : k.homeCode) : null;
+  for(const k of knockout){
+    const fill = (side, label) => {
+      if(k[side]) return;
+      let c = null;
+      const l = /^L(\d+)$/.exec(k[label]);
+      if(l) c = loserOf(koById[+l[1]]);                    // third place: SF losers
+      else if(k.feeders){
+        const f = koById[k.feeders[side === "homeCode" ? 0 : 1]];
+        if(f && f.played) c = f.winner;
+      }
+      if(c){ k[side] = c; k[label] = teams[c]?.name || c; }
+    };
+    fill("homeCode", "hsLabel");
+    fill("awayCode", "asLabel");
+  }
+
   // featured path: matches (in round order) the featured team actually appears in
   const pathFor = c => knockout.filter(k => k.homeCode===c || k.awayCode===c).map(k => k.id);
   const champion = koById[31]?.winner || null;
