@@ -97,7 +97,7 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
     </sc-if>
     <sc-if value="{{messiShow}}" hint-placeholder-val="{{true}}">
       <div style="margin-top:8px;display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);font:600 12px Barlow;color:#cdd6e6">
-        <span style="font-size:14px">⚽</span><span style="font:700 11px Archivo;letter-spacing:.1em;color:#e3b23c">TOP SCORER</span>{{messiLine}}
+        <span style="font-size:14px">⚽</span><span style="font:700 11px Archivo;letter-spacing:.1em;color:#e3b23c">GOLDEN BOOT</span>{{messiLine}}
       </div>
     </sc-if>
   </div>
@@ -1041,27 +1041,43 @@ class Component extends DCLogic {
     const lv=this.liveOf(m); if(!lv||m.played||!(lv.live||lv.done)) return null;
     return Object.assign({label:lv.live?('● '+(lv.clock||'LIVE')):(lv.clock||'FT'), color:lv.live?'#36c98f':'#8793a8'}, lv);
   }
-  messiWatch(){
-    const T=this.featuredCode(), tally={};
-    const add=arr=>(arr||[]).forEach(s=>{ if(s.code===T&&!s.og) tally[s.player]=(tally[s.player]||0)+1; });
-    this.D.groupMatches.forEach(m=>m.played&&add(m.scorers));
-    this.D.knockout.forEach(k=>k.played&&add(k.scorers));
-    let best=null; Object.keys(tally).forEach(p=>{ if(!best||tally[p]>best.goals) best={player:p,goals:tally[p]}; });
-    return best;
+  // every goal this cup, live ones included: played (or promoted) matches use
+  // their baked scorers; a match still in play contributes its ESPN overlay
+  // scorers so the tally moves the moment someone scores, not at full time
+  scorersNow(){
+    const out=[];
+    const scan=m=>{ if(m.played){ out.push.apply(out,m.scorers||[]); } else { const l=this.liveOf(m); if(l&&(l.live||l.done)) out.push.apply(out,l.scorers||[]); } };
+    this.D.groupMatches.forEach(scan); this.D.knockout.forEach(scan);
+    return out;
+  }
+  // tournament-wide Golden Boot standings (own goals never count), best first
+  goldenBoot(){
+    const tally={};
+    this.scorersNow().forEach(s=>{ if(s.og||!s.code||!s.player) return; const k=s.code+'|'+s.player; (tally[k]=tally[k]||{player:s.player,code:s.code,goals:0}).goals++; });
+    return Object.values(tally).sort((a,b)=>b.goals-a.goals);
   }
   buildBanner(){
     const T=this.featuredCode(); if(!this.D.teams[T]) return null;
     const mine=[...this.D.groupMatches.filter(m=>m.homeCode===T||m.awayCode===T),
                 ...this.D.knockout.filter(k=>k.homeCode===T||k.awayCode===T)]
       .map(m=>({m,ft:this.fmt(m.date,m.time,m.venue)})).sort((a,b)=>a.ft.utc-b.ft.utc);
-    const mw=this.messiWatch();
-    const messiLine=mw?(mw.player+' · '+mw.goals+(mw.goals===1?' goal':' goals')+' this cup'):'';
+    // Golden Boot chip: the tournament-wide leader(s), with the featured team's
+    // best scorer alongside when they're not the ones leading
+    const gb=this.goldenBoot();
+    let messiLine='';
+    if(gb.length){
+      const top=gb[0].goals, leaders=gb.filter(x=>x.goals===top), nm=x=>x.player+' ('+x.code+')';
+      messiLine=leaders.slice(0,2).map(nm).join(' & ')+(leaders.length>2?' +'+(leaders.length-2)+' more':'')+' · '+top+(top===1?' goal':' goals')+' this cup';
+      const best=gb.find(x=>x.code===T);
+      if(best&&!leaders.some(l=>l.code===T)) messiLine+=' · '+nm(best)+' '+best.goals;
+    }
+    const messiShow=!!gb.length;
     const next=mine.find(x=>!x.m.played);
     if(!next){
       const champ=this.D.champion===T;
       return { bannerNext:false, bannerDoneShow:true, bannerFeatFlag:this.flag(T).url, bannerFeatName:this.tname(T),
         bannerDoneText: champ?('🏆 '+this.tname(T)+' — World Champions 2026'):(this.tname(T)+'’s tournament is complete'),
-        bannerLiveShow:false, messiShow:!!mw, messiLine };
+        bannerLiveShow:false, messiShow, messiLine };
     }
     const m=next.m, ft=next.ft, isHome=m.homeCode===T, oppCode=isHome?m.awayCode:m.homeCode;
     const oppKnown=!!(oppCode&&this.D.teams[oppCode]);
@@ -1076,7 +1092,7 @@ class Component extends DCLogic {
       bannerCountdown:ov?(liveOn?('● LIVE · '+(ov.clock||'')):(ov.clock||'Full time')):this.countdown(ft.utc),
       bannerLiveShow:!!ov, bannerLiveHide:!ov, bannerLiveScore:ov?(m.homeCode+' '+ov.homeScore+' – '+ov.awayScore+' '+m.awayCode):'',
       bannerCdBg:liveOn?'rgba(54,201,143,.16)':(ov?'rgba(255,255,255,.06)':'rgba(92,192,240,.16)'), bannerCdBorder:liveOn?'rgba(54,201,143,.45)':(ov?'rgba(255,255,255,.14)':'rgba(92,192,240,.35)'), bannerCdColor:liveOn?'#36c98f':(ov?'#cdd6e6':'#9fd8f5'),
-      bannerOnOpen:()=>this.openMatch(m.id), messiShow:!!mw, messiLine };
+      bannerOnOpen:()=>this.openMatch(m.id), messiShow, messiLine };
   }
   buildRoadHead(){
     const T=this.featuredCode(), g=this.groupOf(T), f=this.flag(T);
