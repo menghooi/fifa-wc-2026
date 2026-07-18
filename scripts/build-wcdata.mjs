@@ -6,11 +6,20 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const BASE = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026";
-// ESPN's public (unofficial, key-less) scoreboard — used ONLY to enrich the
-// public-domain openfootball base with the one thing it lacks: penalty-shootout
-// takers. openfootball stays the source of truth for fixtures/scores/scorers.
-// Best-effort: if this fetch fails, the build still produces a complete file.
-const ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719";
+// ESPN's public (unofficial, key-less) scoreboard enriches the openfootball base
+// two ways:
+//   1. penalty-shootout takers (openfootball never carries them);
+//   2. a full-time RESULT FALLBACK — openfootball's auto-gen only refreshes every
+//      ~3-6h, so a finished match can sit "unplayed" in the base for hours. Any
+//      completed ESPN event whose openfootball match is still unplayed gets its
+//      score/pens/goals baked in as a provisional result BEFORE build() runs, so
+//      standings, bracket propagation, champion and featured path all cascade.
+//      openfootball stays authoritative: every run rebuilds from the feed, so its
+//      own data replaces the provisional result as soon as it catches up.
+// Best-effort: if the ESPN fetch fails, the build still produces a complete file.
+// limit=200: the scoreboard silently caps at 100 events by default and the
+// tournament has 104 — without it the last four matches (incl. the final) vanish.
+const ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=200";
 // per-match summary carries the FULL shootout (every kick, incl. misses, in order),
 // which the scoreboard's play list does not — fetched only for ties that went to pens.
 const ESPN_SUMMARY = id => "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=" + id;
@@ -54,13 +63,16 @@ const minNum = m => parseInt(String(m).split("+")[0].match(/\d+/)?.[0] ?? "0", 1
 const minLabel = m => String(m).replace(/\s+/g,"");
 const isPlayed = m => !!(m.score && Array.isArray(m.score.ft) && m.score.ft.length===2);
 
+// ---- ESPN scoreboard (single fetch feeds shootouts + result fallback) -------
+async function getScoreboard(){
+  try{ const r = await fetch(ESPN); if(!r.ok) return []; return (await r.json()).events || []; }
+  catch{ return []; }
+}
+
 // ---- ESPN penalty-shootout takers (best-effort enrichment) ------------------
 // ESPN abbreviations are the same FIFA 3-letter codes openfootball uses, so we
 // key an event by its sorted pair of codes (a pairing is unique in the bracket).
-async function getShootouts(){
-  let events;
-  try{ const r = await fetch(ESPN); if(!r.ok) return {}; events = (await r.json()).events; }
-  catch{ return {}; }
+async function getShootouts(events){
   // find every tie that went to a shootout; keep its ESPN event id + team-id -> code map
   const ties = [];
   for(const ev of events||[]){
@@ -104,6 +116,79 @@ function scoreboardTakers(ev, codeOf){
     scored: d.scoreValue === 1 || /scored/i.test((d.type && d.type.text) || ""),
   })).filter(t => t.code && t.player);
   return out.length ? out : null;
+}
+
+// ---- ESPN full-time results (fallback for a lagging openfootball feed) ------
+// Completed scoreboard events, in a shape ready to merge into raw feed matches.
+function getFinals(events){
+  const finals = [];
+  for(const ev of events||[]){
+    const st = (ev.status && ev.status.type) || {};
+    if(st.state !== "post" || st.completed === false) continue;
+    const c = ev.competitions && ev.competitions[0];
+    if(!c || !c.competitors || c.competitors.length !== 2) continue;
+    const score = {}, so = {}, codeOf = {};
+    let ok = true;
+    for(const t of c.competitors){
+      const code = t.team && t.team.abbreviation;
+      if(!code || t.score == null || Number.isNaN(+t.score)){ ok = false; break; }
+      codeOf[t.team.id] = code; score[code] = +t.score;
+      if(t.shootoutScore != null) so[code] = +t.shootoutScore;
+    }
+    const dateMs = Date.parse(ev.date);
+    if(!ok || !dateMs) continue;
+    const pens = Object.keys(so).length === 2;
+    // ESPN's score is the aggregate incl. extra time; pens imply the tie went 120'
+    const aet = pens || /AET/i.test([st.name, st.detail, st.shortDetail].join(" "));
+    // goal details in openfootball's shape (listed under the team that BENEFITS,
+    // own goals included — same convention both sources use). The scoreboard's
+    // details can lag its score, so these are cosmetic; the score drives the site.
+    const goals = {};
+    for(const d of c.details || []){
+      if(!d.scoringPlay || d.shootout) continue;
+      const code = codeOf[d.team && d.team.id];
+      const name = d.athletesInvolved && d.athletesInvolved[0] && d.athletesInvolved[0].displayName;
+      if(!code || !name) continue;
+      (goals[code] = goals[code] || []).push({ name, minute: ((d.clock && d.clock.displayValue) || "").replace(/'/g, ""), penalty: !!d.penaltyKick, owngoal: !!d.ownGoal });
+    }
+    finals.push({ pair: Object.keys(score).sort().join("|"), dateMs, score, so: pens ? so : null, aet, goals });
+  }
+  return finals;
+}
+
+// Bake ESPN finals into raw feed matches that are still unplayed. Runs BEFORE
+// build(), so everything derived (standings, thirds, knockout propagation,
+// champion, featured path) cascades from the provisional result automatically.
+function applyEspnFinals(wc, teamsRaw, stadiumsRaw, finals){
+  if(!finals.length) return 0;
+  const codeOfName = {}; for(const t of teamsRaw) codeOfName[t.name] = t.fifa_code;
+  const tzOfCity = {}; for(const s of stadiumsRaw.stadiums) tzOfCity[s.city] = parseInt(s.timezone.replace("UTC",""),10);
+  const kickoff = m => {
+    const dp = m.date.split("-").map(Number);
+    const tp = ((m.time||"12:00").split(" ")[0]).split(":").map(Number);
+    return Date.UTC(dp[0], dp[1]-1, dp[2], tp[0], tp[1]) - (tzOfCity[m.ground] ?? -5)*3600000;
+  };
+  let applied = 0;
+  for(const f of finals){
+    // a pairing can occur twice (group meeting + knockout rematch): pick the
+    // unplayed candidate nearest the event's kickoff, and never merge across
+    // more than 6h of drift (protects against a mis-keyed event)
+    const cands = wc.matches.filter(m => {
+      if(isPlayed(m)) return false;
+      const a = codeOfName[m.team1], b = codeOfName[m.team2];
+      return a && b && [a, b].sort().join("|") === f.pair;
+    });
+    if(!cands.length) continue;
+    const m = cands.reduce((x, y) => Math.abs(kickoff(x)-f.dateMs) <= Math.abs(kickoff(y)-f.dateMs) ? x : y);
+    if(Math.abs(kickoff(m) - f.dateMs) > 6*3600000) continue;
+    const hc = codeOfName[m.team1], ac = codeOfName[m.team2];
+    m.score = { ft: [f.score[hc], f.score[ac]] };
+    if(f.aet) m.score.et = [f.score[hc], f.score[ac]];
+    if(f.so) m.score.p = [f.so[hc], f.so[ac]];
+    m.goals1 = f.goals[hc] || []; m.goals2 = f.goals[ac] || [];
+    applied++;
+  }
+  return applied;
 }
 
 function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts){
@@ -255,13 +340,22 @@ function build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts){
     featured: FEATURED, featuredPath: pathFor(FEATURED) };
 }
 
-const [teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts] = await Promise.all([
+const [teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, events] = await Promise.all([
   getJSON("worldcup.teams.json"), getJSON("worldcup.groups.json"), getJSON("worldcup.stadiums.json"),
-  getJSON("worldcup.squads.json"), getJSON("worldcup.json"), getShootouts(),
+  getJSON("worldcup.squads.json"), getJSON("worldcup.json"), getScoreboard(),
 ]);
+// dev rehearsal: WC_SIM_STALE="101,102" strips those openfootball match numbers'
+// results before the ESPN merge, simulating the feed lagging a finished match —
+// the ESPN fallback should then rebuild them as provisional results.
+for(const n of (process.env.WC_SIM_STALE || "").split(",").filter(Boolean)){
+  const m = wc.matches.find(x => x.num === +n);
+  if(m){ delete m.score; delete m.goals1; delete m.goals2; console.log(`sim-stale: stripped result of match ${n}`); }
+}
+const provisional = applyEspnFinals(wc, teamsRaw, stadiumsRaw, getFinals(events));
+const shootouts = await getShootouts(events);
 const data = build(teamsRaw, groupsRaw, stadiumsRaw, squadsRaw, wc, shootouts);
 writeFileSync(OUT, "window.WC_DATA = " + JSON.stringify(data) + ";\n", "utf-8");
 const played = data.groupMatches.filter(m=>m.played).length + data.knockout.filter(k=>k.played).length;
 const withTakers = data.knockout.filter(k=>k.shootout && k.shootout.length).length;
 console.log(`wrote ${OUT}`);
-console.log(`teams=${Object.keys(data.teams).length} groupMatches=${data.groupMatches.length} knockout=${data.knockout.length} played=${played} shootoutTakers=${withTakers} champion=${data.champion||"(undecided)"}`);
+console.log(`teams=${Object.keys(data.teams).length} groupMatches=${data.groupMatches.length} knockout=${data.knockout.length} played=${played} espnProvisional=${provisional} shootoutTakers=${withTakers} champion=${data.champion||"(undecided)"}`);

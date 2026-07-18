@@ -15,3 +15,6 @@ Static site — no build step for the app itself.
    - A console error `sibling fetch for <Slot/> failed: ./Slot.dc.html returned 404` is pre-existing and harmless (Slot/Flag are pre-registered inline in index.html).
    - Mobile layout: force it with `document.body.style.maxWidth='430px'; window.dispatchEvent(new Event('resize'))` (breakpoint is wrap width < 760px).
 4. Flows worth driving: bracket boxes → match modal; header tabs (Bracket/Groups/Fixtures/Road); mobile round pills; check `polyline[points]` for NaN after geometry changes.
+5. Staleness-pipeline rehearsal seams (both dev-only, no effect in production):
+   - Build side: `WC_SIM_STALE="101,102" node scripts/build-wcdata.mjs` strips those openfootball match numbers' results before the ESPN merge — expect `espnProvisional=N` in the log and a fully consistent output rebuilt from ESPN.
+   - Client side: set `window.WC_LIVE_STUB = [<scoreboard events>]` in the console, then `document.dispatchEvent(new Event('visibilitychange'))` — the next poll uses the stub instead of fetching ESPN. A `state:'post'` event for an unplayed match must flip EVERYTHING at once (banner, bracket slot fills, road view, champion, modal). Keep the tab foregrounded: hidden tabs defer rendering, so DOM reads look stale even though the merge ran.

@@ -524,14 +524,17 @@ class Component extends DCLogic {
     this.STAGE_W=1724; this.STAGE_H=1060;
     this.MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     this.WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    // _base = the baked wcData build; this.D = the EFFECTIVE dataset every view
+    // reads (base ⊕ ESPN-finished matches promoted to played — see mergeLive)
     this.D=window.WC_DATA||null;
+    this._base=this.D;
     const hf=!props||props.highlightFeatured!==false;
     this.state={view:'bracket',highlight:hf?'FEAT':'NONE',mobileRound:'R32',mobileFull:false,modal:null};
     this.MOBILE_FULL_SCALE=1; // fixed, native size on mobile "full bracket" — pan to explore
   }
   componentDidMount(){
-    if(!this.D){this.D=window.WC_DATA;if(this.D)this.forceUpdate();}
-    if(!this.D){this._iv=setInterval(()=>{if(window.WC_DATA){this.D=window.WC_DATA;clearInterval(this._iv);this.forceUpdate();this.pollLive();requestAnimationFrame(()=>this.layout());}},60);}
+    if(!this.D){this.D=window.WC_DATA;if(this.D){this._base=this.D;this.forceUpdate();}}
+    if(!this.D){this._iv=setInterval(()=>{if(window.WC_DATA){this._base=window.WC_DATA;this.D=window.WC_DATA;clearInterval(this._iv);this.forceUpdate();this.pollLive();requestAnimationFrame(()=>this.layout());}},60);}
     this._rz=()=>this.layout();
     window.addEventListener('resize',this._rz);
     // keep the "kicks off in …" countdown fresh without a full re-fetch
@@ -540,7 +543,11 @@ class Component extends DCLogic {
     // true-live overlay: poll ESPN now and every 45s for real scores/minutes/shootouts
     this.pollLive();
     this._liveIv=setInterval(()=>this.pollLive(),45000);
-    this._vis=()=>{ if(!document.hidden) this.pollLive(); };   // hidden tabs skip polling; catch up on return
+    // long-lived tabs converge on new builds (the Action deploys ~every 30 min
+    // during the cup) without a reload: re-fetch the baked data every 10 min
+    this._dataAt=Date.now();
+    this._dataIv=setInterval(()=>this.refreshData(),600000);
+    this._vis=()=>{ if(!document.hidden){ this.pollLive(); if(Date.now()-this._dataAt>600000) this.refreshData(); } };   // hidden tabs skip polling; catch up on return
     document.addEventListener('visibilitychange',this._vis);
     // keyboard access: Escape closes the modal; Enter/Space activate the role="button" cards
     this._kbd=e=>{
@@ -551,7 +558,7 @@ class Component extends DCLogic {
     requestAnimationFrame(()=>this.layout());
   }
   componentDidUpdate(){ requestAnimationFrame(()=>this.layout()); if(this._focusPending&&this._modalEl){ this._focusPending=false; this._modalEl.focus(); } }
-  componentWillUnmount(){ clearInterval(this._iv); clearInterval(this._tick); clearInterval(this._liveIv); window.removeEventListener('resize',this._rz); document.removeEventListener('visibilitychange',this._vis); document.removeEventListener('keydown',this._kbd); }
+  componentWillUnmount(){ clearInterval(this._iv); clearInterval(this._tick); clearInterval(this._liveIv); clearInterval(this._dataIv); window.removeEventListener('resize',this._rz); document.removeEventListener('visibilitychange',this._vis); document.removeEventListener('keydown',this._kbd); }
   layout(){
     if(!this._wrap) return;
     const narrow=this._wrap.clientWidth<760;
@@ -911,19 +918,24 @@ class Component extends DCLogic {
     this.D.groupMatches.forEach(m=>add(m,false)); this.D.knockout.forEach(k=>add(k,true));
     this._pairIdx=idx; return idx;
   }
-  // is any match near/inside its play window? from 10 min before kickoff to ~5h after
-  // (covers AET + pens, and keeps a just-finished overlay fresh until the hourly rebuild)
+  // is any match near/inside a window ESPN could still teach us something about?
+  // From 10 min before kickoff to 30h after: covers play + AET/pens, AND lets a
+  // page opened hours later self-heal while the baked feed still lags a result.
+  // this.D is the merged view, so once a finished match is promoted (or the feed
+  // catches up) it counts as played and the window closes by itself.
   pollWindow(){
-    const now=Date.now(), w=m=>{ if(m.played||!m.date||!m.time) return false; const ko=this.kickoffUTC(m.date,m.time,m.venue); return now>=ko-600000&&now<=ko+18000000; };
+    const now=Date.now(), w=m=>{ if(m.played||!m.date||!m.time) return false; const ko=this.kickoffUTC(m.date,m.time,m.venue); return now>=ko-600000&&now<=ko+108000000; };
     return this.D.groupMatches.some(w)||this.D.knockout.some(w);
   }
   pollLive(){
     if(!this.D||typeof fetch!=='function') return;
+    if(window.WC_LIVE_STUB){ this.applyLive(window.WC_LIVE_STUB); return; }   // dev: injected scoreboard events for rehearsals
     if(document.hidden||!this.pollWindow()) return;   // don't hit ESPN when nobody's watching or no match can be in play
-    fetch(this.liveUrl()).then(r=>r.ok?r.json():null).then(j=>{
-      if(!j||!Array.isArray(j.events)) return;
+    fetch(this.liveUrl()).then(r=>r.ok?r.json():null).then(j=>{ if(j&&Array.isArray(j.events)) this.applyLive(j.events); }).catch(()=>{});
+  }
+  applyLive(events){
       const idx=this.pairIndex(), live={}; let count=0;
-      for(const ev of j.events){
+      for(const ev of events){
         const c=ev.competitions&&ev.competitions[0]; if(!c||!c.competitors) continue;
         const st=(ev.status&&ev.status.type)||{}, state=st.state;
         if(state!=='in'&&state!=='post') continue;               // only overlay live or just-finished
@@ -942,8 +954,85 @@ class Component extends DCLogic {
           homeScore:score[m.homeCode], awayScore:score[m.awayCode], soHome:so[m.homeCode], soAway:so[m.awayCode],
           homeCode:m.homeCode, awayCode:m.awayCode, scorers, shootout };
       }
-      this._live=live; this._liveCount=count; this._liveAt=Date.now(); this.forceUpdate();
-    }).catch(()=>{});
+      this._live=live; this._liveCount=count; this._liveAt=Date.now(); this.remerge();
+  }
+  // ---- effective dataset (the single reconciliation point) ---------------
+  // Rebuild this.D from the baked base plus the latest ESPN snapshot, and drop
+  // every cache derived from the old object. Runs after each poll and each
+  // baked-data refresh; all views read this.D, so they can never disagree.
+  remerge(){ this.D=this.mergeLive(this._base,this._live); this._ko=this._pairIdx=this._geom=null; this.forceUpdate(); }
+  // Promote matches ESPN has finished but the baked feed still has unplayed into
+  // real results, then re-derive what the build derives (standings, thirds,
+  // winner/loser propagation, champion, featured path). Client-side mirror of
+  // scripts/build-wcdata.mjs's ESPN fallback — that bounds staleness at the
+  // deploy cadence; this covers the minutes in between, live in the open tab.
+  mergeLive(base,live){
+    if(!base||!live) return base;
+    const byId={}; base.groupMatches.forEach(m=>byId[m.id]=m); base.knockout.forEach(k=>byId[k.id]=k);
+    const fin=lv=>lv.done&&isFinite(lv.homeScore)&&isFinite(lv.awayScore);   // never bake a NaN score
+    let n=0, groupTouched=false;
+    for(const id in live){ const lv=live[id], m=byId[id]; if(fin(lv)&&m&&!m.played){ n++; if(typeof m.id==='string') groupTouched=true; } }  // string id => group match ("G12")
+    if(!n) return base;
+    const promote=(m,isKO)=>{
+      const lv=live[m.id]; if(!lv||!fin(lv)||m.played) return m;
+      const p=Object.assign({},m);
+      p.played=true; p.provisional=true; p.score=[lv.homeScore,lv.awayScore]; p.ht=null;
+      p.scorers=(lv.scorers||[]).map(s=>({code:s.code,player:s.player,min:parseInt(String(s.minLabel),10)||0,minLabel:String(s.minLabel||'').replace(/'/g,''),pen:!!s.pen,og:!!s.og})).sort((a,b)=>a.min-b.min);
+      if(isKO){
+        p.pens=(lv.soHome!=null&&lv.soAway!=null)?[lv.soHome,lv.soAway]:null;
+        p.aet=!!p.pens||/AET/i.test(lv.clock||'');   // pens imply 120'; ESPN's score is the aggregate
+        if(lv.shootout&&lv.shootout.length) p.shootout=lv.shootout;
+        p.winner=lv.homeScore>lv.awayScore?p.homeCode:lv.awayScore>lv.homeScore?p.awayCode:(p.pens?(p.pens[0]>p.pens[1]?p.homeCode:p.awayCode):null);
+      }
+      return p;
+    };
+    const d=Object.assign({},base);
+    d.groupMatches=base.groupMatches.map(m=>promote(m,false));
+    d.knockout=base.knockout.map(k=>Object.assign({},promote(k,true)));   // clone every KO box: propagation writes slots below
+    // standings & thirds — recomputed only when a group result was promoted
+    if(groupTouched){
+      const st={};
+      for(const g in base.groupDef){
+        const row={}; base.groupDef[g].forEach(c=>row[c]={code:c,p:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,pts:0});
+        d.groupMatches.forEach(m=>{
+          if(m.group!==g||!m.played) return;
+          const hg=m.score[0],ag=m.score[1],H=row[m.homeCode],A=row[m.awayCode];
+          H.p++;A.p++;H.gf+=hg;H.ga+=ag;A.gf+=ag;A.ga+=hg;
+          if(hg>ag){H.w++;A.l++;H.pts+=3;}else if(hg<ag){A.w++;H.l++;A.pts+=3;}else{H.d++;A.d++;H.pts++;A.pts++;}
+        });
+        Object.keys(row).forEach(c=>row[c].gd=row[c].gf-row[c].ga);
+        st[g]=Object.values(row).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
+      }
+      d.standings=st;
+      d.thirds=Object.keys(st).map(g=>Object.assign({},st[g][2],{group:g})).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf).slice(0,8).map(t=>({code:t.code,group:t.group,pts:t.pts,gd:t.gd,gf:t.gf}));
+    }
+    // cascade decided results into unresolved W##/L## slots (same as the build)
+    const ko={}; d.knockout.forEach(k=>ko[k.id]=k);
+    const loserOf=k=>(k&&k.played&&k.winner&&k.homeCode&&k.awayCode)?(k.winner===k.homeCode?k.awayCode:k.homeCode):null;
+    d.knockout.forEach(k=>{
+      const fill=(side,label)=>{
+        if(k[side]) return; let c=null;
+        const l=/^L(\d+)$/.exec(k[label]);
+        if(l) c=loserOf(ko[+l[1]]);                    // third place: SF losers
+        else if(k.feeders){ const f=ko[k.feeders[side==='homeCode'?0:1]]; if(f&&f.played) c=f.winner; }
+        if(c){ k[side]=c; k[label]=(d.teams[c]&&d.teams[c].name)||c; }
+      };
+      fill('homeCode','hsLabel'); fill('awayCode','asLabel');
+    });
+    d.champion=(ko[31]&&ko[31].winner)||null;
+    d.featuredPath=d.knockout.filter(k=>k.homeCode===d.featured||k.awayCode===d.featured).map(k=>k.id);
+    return d;
+  }
+  // re-fetch the baked wcData.js (same cache-busting as the initial load); swap
+  // the base only when a genuinely newer build arrived, then re-merge
+  refreshData(){
+    if(document.hidden) return;
+    this._dataAt=Date.now();
+    const s=document.createElement('script');
+    s.src='./project/wcData.js?t='+Date.now();
+    s.onload=()=>{ s.remove(); const d=window.WC_DATA; if(d&&d.generatedAt&&(!this._base||d.generatedAt!==this._base.generatedAt)){ this._base=d; this.remerge(); } };
+    s.onerror=()=>s.remove();
+    document.body.appendChild(s);
   }
   liveOf(m){ return (m&&this._live&&this._live[m.id])||null; }
   // the ESPN overlay for a match our base data hasn't recorded yet (in play or just

@@ -18,8 +18,9 @@ on:
     # twice hourly at off-peak minutes (UTC). :00 is GitHub's most congested
     # slot and schedules there drift or skip the most; an arbitrary minute
     # drifts far less, and two ticks an hour halves the staleness cost of a
-    # skipped run. openfootball's own auto-gen only refreshes every ~3-6h,
-    # so anything faster has diminishing returns.
+    # skipped run. The build bakes in ESPN full-time results whenever
+    # openfootball (auto-gen every ~3-6h) lags a finished match, so this
+    # cadence — not the feed — is what bounds how stale a result can get.
     - cron: "7,37 * * * *"
 
 # Required for the Actions-based Pages deployment
