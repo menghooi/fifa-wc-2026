@@ -232,6 +232,9 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
     <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap">
       <h2 style="font:800 22px Archivo">Fixtures</h2>
       <span style="font:600 13px Barlow;color:#8793a8">All kick-offs in Malaysia time (MYT) · tap for details &amp; calendar</span>
+      <sc-if value="{{showTodayJump}}" hint-placeholder-val="{{false}}">
+        <button onClick="{{jumpToday}}" style="border:1px solid rgba(92,192,240,.35);background:rgba(92,192,240,.1);color:#9fd8f5;cursor:pointer;padding:4px 12px;border-radius:20px;font:700 11px Barlow;margin-left:auto">{{todayJumpLabel}}</button>
+      </sc-if>
     </div>
     <!-- CATCH-UP STRIP: live now / latest results / up next -->
     <sc-if value="{{catchShow}}" hint-placeholder-val="{{false}}">
@@ -1154,12 +1157,14 @@ class Component extends DCLogic {
     this._fixRows=rows;   // same-render reuse by buildCatchUp
     const days=[], map={};
     rows.forEach(r=>{ if(!map[r.dateKey]){ map[r.dateKey]={dateLabel:r.dateLabel,isToday:r.dateKey===todayKey,todayTag:r.dateKey===todayKey?'TODAY':'',matches:[]}; days.push(map[r.dateKey]); } map[r.dateKey].matches.push(r); });
-    // jump target: today's group, else the first day still to be played, else the last.
-    // Entering the view auto-scrolls here (the list spans ~5 weeks); the target's
-    // header carries a chip back up to the catch-up strip so neither buries the other.
+    // jump target: today's group, else the first day still to be played, else the
+    // last. The view opens at the top (catch-up strip in view); a "↓ Today" chip
+    // jumps down here on demand, and the target's header carries a chip back up —
+    // deliberate taps both ways, no auto-scroll yanking the strip away.
     let ti=days.findIndex(d=>d.isToday||d.matches.some(x=>x.status!=='done'));
     if(ti<0) ti=days.length-1;
-    days.forEach((d,i)=>{ const tgt=i===ti&&i>0; d.ref=tgt?(el=>this.fixJump(el)):()=>{}; d.showCatch=tgt; });
+    this._todayTarget=ti>0; this._todayLabel=days[ti]&&days[ti].isToday?'↓ Today':'↓ Latest';
+    days.forEach((d,i)=>{ const tgt=i===ti&&i>0; d.ref=tgt?(el=>{ if(el) this._todayEl=el; }):()=>{}; d.showCatch=tgt; });
     return days;
   }
   // the compact "what's happening" strip above the fixtures list
@@ -1174,17 +1179,11 @@ class Component extends DCLogic {
     if(up.length) sec.push({label:'UP NEXT',color:'#5cc0f0',rows:up.map(tag)});
     return sec;
   }
-  // one-shot scroll to the target day when the Fixtures tab is opened. The flag
-  // is only consumed once a sane offset is measured: on the view's very first
-  // render the ref can fire before hydration/layout settles (offset ~0), so a
-  // second attempt runs after things settle. Later re-renders no-op on the flag.
-  fixJump(el){
-    if(!el||!this._fixJumpPending) return;
-    const go=()=>{ if(!this._fixJumpPending) return;
-      const h=document.querySelector('header'); const top=el.getBoundingClientRect().top+window.scrollY-((h?h.offsetHeight:64)+12);
-      if(top>0){ this._fixJumpPending=false; window.scrollTo({top:top}); } };
-    requestAnimationFrame(go);
-    setTimeout(go,400);
+  // scroll the fixtures list to the target day (element recorded by its ref)
+  jumpToday(){
+    const el=this._todayEl; if(!el) return;
+    const h=document.querySelector('header');
+    window.scrollTo({top:Math.max(0,el.getBoundingClientRect().top+window.scrollY-((h?h.offsetHeight:64)+12))});
   }
   buildMobile(){
     const rounds=[['R32','Round of 32'],['R16','Round of 16'],['QF','Quarter-finals'],['SF','Semi-finals'],['F','Final']];
@@ -1228,8 +1227,8 @@ class Component extends DCLogic {
       goRounds:()=>this.setState({mobileFull:false}),
       stop:e=>{e.stopPropagation();},
       modalRef:el=>{ this._modalEl=el; },
-      setBracket:()=>this.setState({view:'bracket'}), setGroups:()=>this.setState({view:'groups'}), setRoad:()=>this.setState({view:'road'}), setFixtures:()=>{ this._fixJumpPending=true; this.setState({view:'fixtures'}); },
-      scrollTop:()=>window.scrollTo({top:0}),
+      setBracket:()=>this.setState({view:'bracket'}), setGroups:()=>this.setState({view:'groups'}), setRoad:()=>this.setState({view:'road'}), setFixtures:()=>this.setState({view:'fixtures'}),
+      scrollTop:()=>window.scrollTo({top:0}), jumpToday:()=>this.jumpToday(),
       setHiFeat:()=>this.setState({highlight:'FEAT'}), setHiNone:()=>this.setState({highlight:'NONE'}),
       closeModal:()=>this.closeModal(),
       isBracket:this.state.view==='bracket', isGroups:this.state.view==='groups', isRoad:this.state.view==='road', isFixtures:this.state.view==='fixtures',
@@ -1265,8 +1264,8 @@ class Component extends DCLogic {
     else { v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:true,played:false,champName:''}; }
     if(v.bracketMobile){ const m=this.buildMobile(); v.mobileRoundTabs=m.tabs; v.mobileBoxes=m.boxes; v.mobileRoundTitle=m.title; }
     if(this.state.view==='groups') v.groups=this.buildGroups(); else v.groups=[];
-    if(this.state.view==='fixtures'){ v.fixtureDays=this.buildFixtures(); v.catchSections=this.buildCatchUp(); v.catchShow=v.catchSections.length>0; }
-    else { v.fixtureDays=[]; v.catchSections=[]; v.catchShow=false; }
+    if(this.state.view==='fixtures'){ v.fixtureDays=this.buildFixtures(); v.catchSections=this.buildCatchUp(); v.catchShow=v.catchSections.length>0; v.showTodayJump=!!this._todayTarget; v.todayJumpLabel=this._todayLabel||'↓ Today'; }
+    else { v.fixtureDays=[]; v.catchSections=[]; v.catchShow=false; v.showTodayJump=false; v.todayJumpLabel=''; }
     if(this.state.view==='road'){ v.roadCards=this.buildRoad(); v.roadChampion=this.D.champion===T; v.roadSubtitle=this.D.champion===T?('Champions of the world — the full road to glory.'):(this.tname(T)+'’s run through the 2026 World Cup — tap a stage for kick-off times.'); v.roadHead=this.buildRoadHead(); }
     else { v.roadCards=[];v.roadChampion=false;v.roadSubtitle='';v.roadHead={}; }
     if(this.state.modal){
