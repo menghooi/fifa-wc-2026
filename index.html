@@ -233,12 +233,38 @@ body{background:#070a12;font-family:Barlow,system-ui,sans-serif;-webkit-font-smo
       <h2 style="font:800 22px Archivo">Fixtures</h2>
       <span style="font:600 13px Barlow;color:#8793a8">All kick-offs in Malaysia time (MYT) · tap for details &amp; calendar</span>
     </div>
+    <!-- CATCH-UP STRIP: live now / latest results / up next -->
+    <sc-if value="{{catchShow}}" hint-placeholder-val="{{false}}">
+    <div style="background:#0e1626;border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:13px 14px 5px;margin-bottom:22px">
+      <sc-for list="{{catchSections}}" as="cs" hint-placeholder-count="3">
+        <div style="margin-bottom:10px">
+          <div style="font:800 10px Archivo;letter-spacing:.14em;color:{{cs.color}};margin-bottom:6px">{{cs.label}}</div>
+          <sc-for list="{{cs.rows}}" as="cr" hint-placeholder-count="3">
+            <div onClick="{{cr.onOpen}}" role="button" tabIndex="0" style="display:flex;align-items:center;gap:8px;padding:7px 9px;margin-bottom:4px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:9px;cursor:pointer" style-hover="border-color:rgba(255,255,255,.2)">
+              <span style="font:700 9px Archivo;letter-spacing:.06em;color:#7d89a2;width:32px;flex:none">{{cr.round}}</span>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0">
+                <sc-if value="{{cr.homeHasFlag}}" hint-placeholder-val="{{true}}"><img src="{{cr.homeFlag}}" alt="" style="width:20px;height:14px;border-radius:2px;object-fit:cover;flex:none"></sc-if>
+                <span style="font:700 12px Archivo;color:#dbe3f0">{{cr.homeChip}}</span>
+                <span style="font:{{cr.midWeight}} 14px Archivo;color:{{cr.midColor}};white-space:nowrap">{{cr.mid}}</span>
+                <span style="font:700 12px Archivo;color:#dbe3f0">{{cr.awayChip}}</span>
+                <sc-if value="{{cr.awayHasFlag}}" hint-placeholder-val="{{true}}"><img src="{{cr.awayFlag}}" alt="" style="width:20px;height:14px;border-radius:2px;object-fit:cover;flex:none"></sc-if>
+              </div>
+              <span style="font:700 10px Archivo;letter-spacing:.04em;color:{{cr.tagColor}};flex:none;white-space:nowrap">{{cr.tag}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
     <sc-for list="{{fixtureDays}}" as="day" hint-placeholder-count="20">
-      <div style="margin-bottom:18px">
+      <div ref="{{day.ref}}" style="margin-bottom:18px">
         <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
           <span style="font:700 12px Archivo;letter-spacing:.04em;color:#c9d3e6">{{day.dateLabel}}</span>
           <sc-if value="{{day.isToday}}" hint-placeholder-val="{{false}}">
             <span style="padding:2px 9px;border-radius:20px;background:rgba(54,201,143,.16);border:1px solid rgba(54,201,143,.4);font:800 9px Archivo;letter-spacing:.1em;color:#36c98f">{{day.todayTag}}</span>
+          </sc-if>
+          <sc-if value="{{day.showCatch}}" hint-placeholder-val="{{false}}">
+            <button onClick="{{scrollTop}}" style="border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#9fb2cd;cursor:pointer;padding:3px 10px;border-radius:20px;font:600 10px Barlow">↑ Recent &amp; next</button>
           </sc-if>
         </div>
         <sc-for list="{{day.matches}}" as="fx" hint-placeholder-count="8">
@@ -1111,9 +1137,12 @@ class Component extends DCLogic {
     else if(ov){ mid=ov.homeScore+' – '+ov.awayScore; midColor='#fff'; midWeight='800'; stateBadge='FT'; stateShow=true; stateColor='#8793a8'; }
     else { mid=ft.myt; midColor='#9aa4ba'; midWeight='600'; stateBadge=''; stateShow=false; stateColor='#8793a8'; }
     const round=isKO?({R32:'R32',R16:'R16',QF:'QF',SF:'SF',TP:'3RD',F:'FINAL'})[m.round]:('GRP '+m.group);
-    return { dateKey:ft.mytDateKey, dateLabel:ft.mytDateFull, utc:ft.utc,
+    // status drives the catch-up strip: finished (baked or ESPN-final) / in play / still to come
+    const status=m.played?'done':(ov&&ov.live?'live':(ov?'done':'up'));
+    return { dateKey:ft.mytDateKey, dateLabel:ft.mytDateFull, dateShort:ft.mytDateShort, utc:ft.utc, status,
       homeName:hk?this.tname(m.homeCode):this.seedChip(m.hsLabel||''), homeFlag:hf.url, homeHasFlag:hf.has,
       awayName:ak?this.tname(m.awayCode):this.seedChip(m.asLabel||''), awayFlag:af.url, awayHasFlag:af.has,
+      homeChip:hk?m.homeCode:this.seedChip(m.hsLabel||''), awayChip:ak?m.awayCode:this.seedChip(m.asLabel||''),
       mid, midColor, midWeight, stateBadge, stateShow, stateColor, round,
       onOpen:()=>this.openMatch(m.id) };
   }
@@ -1122,9 +1151,40 @@ class Component extends DCLogic {
     this.D.groupMatches.forEach(m=>rows.push(this.fixtureRow(m,false)));
     this.D.knockout.forEach(k=>rows.push(this.fixtureRow(k,true)));
     rows.sort((a,b)=>a.utc-b.utc);
+    this._fixRows=rows;   // same-render reuse by buildCatchUp
     const days=[], map={};
     rows.forEach(r=>{ if(!map[r.dateKey]){ map[r.dateKey]={dateLabel:r.dateLabel,isToday:r.dateKey===todayKey,todayTag:r.dateKey===todayKey?'TODAY':'',matches:[]}; days.push(map[r.dateKey]); } map[r.dateKey].matches.push(r); });
+    // jump target: today's group, else the first day still to be played, else the last.
+    // Entering the view auto-scrolls here (the list spans ~5 weeks); the target's
+    // header carries a chip back up to the catch-up strip so neither buries the other.
+    let ti=days.findIndex(d=>d.isToday||d.matches.some(x=>x.status!=='done'));
+    if(ti<0) ti=days.length-1;
+    days.forEach((d,i)=>{ const tgt=i===ti&&i>0; d.ref=tgt?(el=>this.fixJump(el)):()=>{}; d.showCatch=tgt; });
     return days;
+  }
+  // the compact "what's happening" strip above the fixtures list
+  buildCatchUp(){
+    const rows=this._fixRows||[];
+    const tag=r=>Object.assign({},r,{ tag:r.status==='live'?('● '+(r.stateBadge||'LIVE')):r.status==='done'?('FT · '+r.dateShort):r.dateShort,
+                                      tagColor:r.status==='live'?'#36c98f':r.status==='done'?'#8793a8':'#5cc0f0' });
+    const live=rows.filter(r=>r.status==='live'), done=rows.filter(r=>r.status==='done').slice(-3).reverse(), up=rows.filter(r=>r.status==='up').slice(0,3);
+    const sec=[];
+    if(live.length) sec.push({label:'LIVE NOW',color:'#36c98f',rows:live.map(tag)});
+    if(done.length) sec.push({label:'LATEST RESULTS',color:'#e3b23c',rows:done.map(tag)});
+    if(up.length) sec.push({label:'UP NEXT',color:'#5cc0f0',rows:up.map(tag)});
+    return sec;
+  }
+  // one-shot scroll to the target day when the Fixtures tab is opened. The flag
+  // is only consumed once a sane offset is measured: on the view's very first
+  // render the ref can fire before hydration/layout settles (offset ~0), so a
+  // second attempt runs after things settle. Later re-renders no-op on the flag.
+  fixJump(el){
+    if(!el||!this._fixJumpPending) return;
+    const go=()=>{ if(!this._fixJumpPending) return;
+      const h=document.querySelector('header'); const top=el.getBoundingClientRect().top+window.scrollY-((h?h.offsetHeight:64)+12);
+      if(top>0){ this._fixJumpPending=false; window.scrollTo({top:top}); } };
+    requestAnimationFrame(go);
+    setTimeout(go,400);
   }
   buildMobile(){
     const rounds=[['R32','Round of 32'],['R16','Round of 16'],['QF','Quarter-finals'],['SF','Semi-finals'],['F','Final']];
@@ -1168,7 +1228,8 @@ class Component extends DCLogic {
       goRounds:()=>this.setState({mobileFull:false}),
       stop:e=>{e.stopPropagation();},
       modalRef:el=>{ this._modalEl=el; },
-      setBracket:()=>this.setState({view:'bracket'}), setGroups:()=>this.setState({view:'groups'}), setRoad:()=>this.setState({view:'road'}), setFixtures:()=>this.setState({view:'fixtures'}),
+      setBracket:()=>this.setState({view:'bracket'}), setGroups:()=>this.setState({view:'groups'}), setRoad:()=>this.setState({view:'road'}), setFixtures:()=>{ this._fixJumpPending=true; this.setState({view:'fixtures'}); },
+      scrollTop:()=>window.scrollTo({top:0}),
       setHiFeat:()=>this.setState({highlight:'FEAT'}), setHiNone:()=>this.setState({highlight:'NONE'}),
       closeModal:()=>this.closeModal(),
       isBracket:this.state.view==='bracket', isGroups:this.state.view==='groups', isRoad:this.state.view==='road', isFixtures:this.state.view==='fixtures',
@@ -1184,7 +1245,7 @@ class Component extends DCLogic {
       showHighlight:false, hiFeatLabel:'Featured', hiFeatBtn:this.pill(false), hiNoneBtn:this.pill(true),
       bannerShow:false
     };
-    if(!this.D){ v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:true,played:false};v.groups=[];v.roadCards=[];v.roadSubtitle='';v.roadChampion=false;v.fixtureDays=[];v.bracketWide=false;v.roadTabLabel='Road'; return v; }
+    if(!this.D){ v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:true,played:false};v.groups=[];v.roadCards=[];v.roadSubtitle='';v.roadChampion=false;v.fixtureDays=[];v.catchSections=[];v.catchShow=false;v.bracketWide=false;v.roadTabLabel='Road'; return v; }
     const T=this.featuredCode();
     v.roadTabLabel=this.tname(T)+'’s Road'; v.featName=this.tname(T);
     // persistent featured next-match banner
@@ -1204,7 +1265,8 @@ class Component extends DCLogic {
     else { v.boxes=[];v.connectors=[];v.labels=[];v.finalBox={notPlayed:true,played:false,champName:''}; }
     if(v.bracketMobile){ const m=this.buildMobile(); v.mobileRoundTabs=m.tabs; v.mobileBoxes=m.boxes; v.mobileRoundTitle=m.title; }
     if(this.state.view==='groups') v.groups=this.buildGroups(); else v.groups=[];
-    if(this.state.view==='fixtures') v.fixtureDays=this.buildFixtures(); else v.fixtureDays=[];
+    if(this.state.view==='fixtures'){ v.fixtureDays=this.buildFixtures(); v.catchSections=this.buildCatchUp(); v.catchShow=v.catchSections.length>0; }
+    else { v.fixtureDays=[]; v.catchSections=[]; v.catchShow=false; }
     if(this.state.view==='road'){ v.roadCards=this.buildRoad(); v.roadChampion=this.D.champion===T; v.roadSubtitle=this.D.champion===T?('Champions of the world — the full road to glory.'):(this.tname(T)+'’s run through the 2026 World Cup — tap a stage for kick-off times.'); v.roadHead=this.buildRoadHead(); }
     else { v.roadCards=[];v.roadChampion=false;v.roadSubtitle='';v.roadHead={}; }
     if(this.state.modal){
