@@ -1,27 +1,21 @@
 name: Deploy site to Pages
 
-# Builds wcData.js fresh from openfootball's public-domain feed and
-# publishes the static site straight to GitHub Pages as an artifact.
-# Nothing is committed back to the repo, so history stays clean.
+# Publishes the static site straight to GitHub Pages as an artifact.
+#
+# The tournament is over: project/wcData.js is now the committed, frozen final
+# record (Spain champions) and is shipped AS-IS — the build no longer rebuilds
+# it from openfootball, and the twice-hourly schedule is retired, so a future
+# archiving/degrading of the 2026 feed can never overwrite the final result.
+# To re-enable live rebuilds, restore the schedule and the "Build wcData.js"
+# step (see git history) and run scripts/build-wcdata.mjs before assembling.
 #
 # Triggers:
 #   - push to main so code changes go live immediately
 #   - manual (Actions tab)
-#   - a schedule during the tournament so results and the filling bracket
-#     stay current without anyone pressing a button. Comment the schedule
-#     back out to return to fully manual deploys.
 on:
   push:
     branches: [main]
   workflow_dispatch: {}
-  schedule:
-    # twice hourly at off-peak minutes (UTC). :00 is GitHub's most congested
-    # slot and schedules there drift or skip the most; an arbitrary minute
-    # drifts far less, and two ticks an hour halves the staleness cost of a
-    # skipped run. The build bakes in ESPN full-time results whenever
-    # openfootball (auto-gen every ~3-6h) lags a finished match, so this
-    # cadence — not the feed — is what bounds how stale a result can get.
-    - cron: "7,37 * * * *"
 
 # Required for the Actions-based Pages deployment
 permissions:
@@ -42,13 +36,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "20"
-
-      - name: Build wcData.js from openfootball
-        run: node scripts/build-wcdata.mjs
 
       - name: Assemble static site
         run: |
